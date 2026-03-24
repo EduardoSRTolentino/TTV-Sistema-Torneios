@@ -1,0 +1,22 @@
+# MySQL para desenvolvimento local (Fase 1)
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ttv_torneios
+      MYSQL_USER: ttv
+      MYSQL_PASSWORD: ttv_secret
+      MYSQL_ROOT_PASSWORD: root_secret
+    ports:
+      - "3306:3306"
+    volumes:
+      - ttv_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ttv_mysql_data:

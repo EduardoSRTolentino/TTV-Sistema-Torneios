@@ -1,0 +1,106 @@
+import axios from "axios";
+import type { BracketMatch, Registration, Tournament, User } from "./types";
+
+const api = axios.create({
+  baseURL: "/api",
+  headers: { "Content-Type": "application/json" },
+});
+
+export function setAuthToken(token: string | null) {
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+    localStorage.setItem("ttv_token", token);
+  } else {
+    delete api.defaults.headers.common.Authorization;
+    localStorage.removeItem("ttv_token");
+  }
+}
+
+const saved = localStorage.getItem("ttv_token");
+if (saved) setAuthToken(saved);
+
+export async function login(email: string, password: string) {
+  const { data } = await api.post<{ access_token: string }>("/auth/login", { email, password });
+  setAuthToken(data.access_token);
+  return data;
+}
+
+export async function register(payload: { email: string; password: string; full_name: string }) {
+  const { data } = await api.post<User>("/auth/register", payload);
+  return data;
+}
+
+export async function me() {
+  const { data } = await api.get<User>("/auth/me");
+  return data;
+}
+
+export async function listTournaments() {
+  const { data } = await api.get<Tournament[]>("/tournaments");
+  return data;
+}
+
+export async function getTournament(id: number) {
+  const { data } = await api.get<Tournament>(`/tournaments/${id}`);
+  return data;
+}
+
+export async function createTournament(payload: {
+  title: string;
+  description?: string;
+  game_format: "singles" | "doubles";
+  bracket_format: "knockout" | "group_knockout";
+  max_participants: number;
+  registration_deadline?: string | null;
+}) {
+  const { data } = await api.post<Tournament>("/tournaments", payload);
+  return data;
+}
+
+export async function openRegistration(id: number) {
+  const { data } = await api.post<Tournament>(`/tournaments/${id}/abrir-inscricoes`);
+  return data;
+}
+
+export async function closeRegistration(id: number) {
+  const { data } = await api.post<Tournament>(`/tournaments/${id}/fechar-inscricoes`);
+  return data;
+}
+
+export async function registerInTournament(id: number, partner_email?: string) {
+  const { data } = await api.post<Registration>(`/tournaments/${id}/inscricao`, {
+    partner_email: partner_email || null,
+  });
+  return data;
+}
+
+export async function listRegistrations(id: number) {
+  const { data } = await api.get<Registration[]>(`/tournaments/${id}/inscricoes`);
+  return data;
+}
+
+export async function generateBracket(id: number) {
+  const { data } = await api.post<BracketMatch[]>(`/tournaments/${id}/gerar-chaveamento`);
+  return data;
+}
+
+export async function getBracket(id: number) {
+  const { data } = await api.get<BracketMatch[]>(`/tournaments/${id}/chaveamento`);
+  return data;
+}
+
+export async function listRanking() {
+  const { data } = await api.get<Array<{ user_id: number; full_name: string; rating: number; games_played: number }>>(
+    "/ranking"
+  );
+  return data;
+}
+
+export async function setWinner(matchId: number, winner_registration_id: number) {
+  const { data } = await api.post<BracketMatch>(`/tournaments/partidas/${matchId}/vencedor`, {
+    winner_registration_id,
+  });
+  return data;
+}
+
+export { api };
