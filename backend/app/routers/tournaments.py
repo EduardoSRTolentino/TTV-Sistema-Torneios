@@ -222,6 +222,8 @@ def declare_winner(
     if not m:
         raise HTTPException(404, "Partida não encontrada")
     t = db.query(Tournament).filter(Tournament.id == m.tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Torneio não encontrado")
     if user.role != UserRole.admin and t.organizer_id != user.id:
         raise HTTPException(403, "Apenas o organizador ou admin")
     try:

@@ -92,6 +92,8 @@ async def google_callback(request: Request, code: str | None = None, state: str 
                 sub=sub,
                 hashed_password=hash_password(secrets.token_urlsafe(32)),
             )
+    if user is None:
+        raise HTTPException(404, "Conta de usuário não encontrada")
     db.commit()
     jwt_token = create_access_token(str(user.id))
     target = f"{settings.frontend_url}/oauth-callback?token={jwt_token}"

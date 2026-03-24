@@ -1,0 +1,7 @@
+[tool.pyright]
+include = ["app"]
+venvPath = "."
+venv = "venv"
+pythonVersion = "3.12"
+# Permite `from app.xxx` com a pasta backend como raiz do pacote
+extraPaths = ["."]
