@@ -32,7 +32,7 @@ export function TournamentList() {
       <div style={{ display: "grid", gap: "1rem" }}>
         {items.map((t) => (
           <Link key={t.id} to={`/torneios/${t.id}`} className="card" style={{ display: "block", color: "inherit" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <div className="tournament-row">
               <div>
                 <strong style={{ fontSize: "1.1rem" }}>{t.title}</strong>
                 <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.25rem" }}>

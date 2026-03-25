@@ -19,34 +19,36 @@ export function Ranking() {
       <h2 style={{ marginTop: 0 }}>Ranking global (ELO)</h2>
       <p style={{ color: "var(--muted)" }}>Atualizado conforme resultados registrados (Fase 2).</p>
       {err && <p className="error">{err}</p>}
-      <div className="card" style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--line)" }}>
-              <th>#</th>
-              <th>Jogador</th>
-              <th>ELO</th>
-              <th>Partidas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.user_id} style={{ borderBottom: "1px solid var(--line)" }}>
-                <td style={{ padding: "0.5rem 0" }}>{i + 1}</td>
-                <td>{r.full_name}</td>
-                <td>{r.rating.toFixed(1)}</td>
-                <td>{r.games_played}</td>
-              </tr>
-            ))}
-            {!rows.length && !err && (
+      <div className="card">
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={4} style={{ color: "var(--muted)", padding: "0.75rem 0" }}>
-                  Nenhum dado ainda — o ranking preenche após partidas oficiais.
-                </td>
+                <th>#</th>
+                <th>Jogador</th>
+                <th>ELO</th>
+                <th>Partidas</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.user_id}>
+                  <td>{i + 1}</td>
+                  <td>{r.full_name}</td>
+                  <td>{r.rating.toFixed(1)}</td>
+                  <td>{r.games_played}</td>
+                </tr>
+              ))}
+              {!rows.length && !err && (
+                <tr>
+                  <td colSpan={4} style={{ color: "var(--muted)", padding: "0.75rem 0" }}>
+                    Nenhum dado ainda — o ranking preenche após partidas oficiais.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

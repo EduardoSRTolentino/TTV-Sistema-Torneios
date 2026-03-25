@@ -36,6 +36,16 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Erro interno do servidor"})
 
 
+@app.get("/")
+def root():
+    """Raiz da API (evita 404 ao abrir só a porta no navegador)."""
+    return {
+        "service": "ttv-torneios",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "ttv-torneios"}

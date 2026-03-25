@@ -1,47 +1,78 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
+  const navClass = ({ isActive }: { isActive: boolean }) => (isActive ? "active" : undefined);
+
   return (
     <div>
-      <header
-        style={{
-          borderBottom: "1px solid var(--line)",
-          background: "rgba(255,255,255,0.85)",
-          backdropFilter: "blur(8px)",
-          position: "sticky",
-          top: 0,
-          zIndex: 10,
-        }}
-      >
-        <div className="container" style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.85rem 0" }}>
-          <Link to="/" className="brand" style={{ fontWeight: 800, fontSize: "1.1rem" }}>
+      <header className="site-header">
+        <div className="container header-row">
+          <Link to="/" className="header-brand">
             TTV-TORNEIOS
           </Link>
-          <nav style={{ display: "flex", gap: "1rem", flex: 1, flexWrap: "wrap" }}>
-            <NavLink to="/torneios" style={({ isActive }) => ({ fontWeight: isActive ? 700 : 500 })}>
+          <div className="header-spacer" aria-hidden />
+          <nav className={`site-nav${menuOpen ? " is-open" : ""}`} aria-label="Navegação principal">
+            <NavLink to="/torneios" className={navClass} end>
               Torneios
             </NavLink>
-            <NavLink to="/ranking" style={({ isActive }) => ({ fontWeight: isActive ? 700 : 500 })}>
+            <NavLink to="/ranking" className={navClass}>
               Ranking
             </NavLink>
             {user && (
-              <NavLink to="/painel" style={({ isActive }) => ({ fontWeight: isActive ? 700 : 500 })}>
+              <NavLink to="/painel" className={navClass}>
                 Painel
               </NavLink>
             )}
             {(user?.role === "organizer" || user?.role === "admin") && (
-              <NavLink to="/torneios/novo" style={({ isActive }) => ({ fontWeight: isActive ? 700 : 500 })}>
+              <NavLink to="/torneios/novo" className={navClass}>
                 Novo torneio
               </NavLink>
             )}
+            <div className="site-nav__mobile-auth">
+              {user ? (
+                <>
+                  <span className="badge">{user.role}</span>
+                  <span style={{ color: "var(--muted)" }}>{user.full_name}</span>
+                  <button className="btn btn-ghost" type="button" onClick={() => { logout(); setMenuOpen(false); }}>
+                    Sair
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/entrar" className="btn btn-ghost" onClick={() => setMenuOpen(false)}>
+                    Entrar
+                  </Link>
+                  <Link to="/cadastro" className="btn btn-primary" onClick={() => setMenuOpen(false)}>
+                    Cadastrar
+                  </Link>
+                </>
+              )}
+            </div>
           </nav>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div className="header-auth-desktop">
             {user ? (
               <>
                 <span className="badge">{user.role}</span>
-                <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{user.full_name}</span>
+                <span className="header-user-name" title={user.full_name}>
+                  {user.full_name}
+                </span>
                 <button className="btn btn-ghost" type="button" onClick={logout}>
                   Sair
                 </button>
@@ -55,12 +86,28 @@ export function Layout() {
               </>
             )}
           </div>
+          <button
+            type="button"
+            className="menu-toggle"
+            aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            <span className="menu-toggle-icon" aria-hidden />
+          </button>
         </div>
+        <button
+          type="button"
+          className={`nav-backdrop${menuOpen ? " is-open" : ""}`}
+          aria-label="Fechar menu"
+          tabIndex={-1}
+          onClick={() => setMenuOpen(false)}
+        />
       </header>
-      <main className="container" style={{ padding: "1.5rem 0 3rem" }}>
+      <main className="container site-main">
         <Outlet />
       </main>
-      <footer style={{ borderTop: "1px solid var(--line)", padding: "1.5rem 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+      <footer className="site-footer">
         <div className="container">TTV-Torneios — plataforma de torneios de tênis de mesa.</div>
       </footer>
     </div>

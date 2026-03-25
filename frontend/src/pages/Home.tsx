@@ -2,16 +2,18 @@ import { Link } from "react-router-dom";
 
 export function Home() {
   return (
-    <div className="grid-2" style={{ alignItems: "center" }}>
+    <div className="grid-2">
       <div>
         <p className="badge" style={{ marginBottom: "0.75rem" }}>
           Tênis de mesa • Torneios
         </p>
-        <h1 style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", margin: "0 0 0.75rem" }}>Inscrições e chaves no ritmo eSports</h1>
+        <h1 style={{ fontSize: "clamp(1.5rem, 5vw, 2.6rem)", lineHeight: 1.15, margin: "0 0 0.75rem" }}>
+          Inscrições e chaves no ritmo eSports
+        </h1>
         <p style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: "1.25rem" }}>
           Gerencie torneios individuais ou em dupla, abra inscrições com limite de vagas e gere mata-mata automaticamente.
         </p>
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div className="hero-ctas">
           <Link to="/torneios" className="btn btn-primary">
             Ver torneios
           </Link>
