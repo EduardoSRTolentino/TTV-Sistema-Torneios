@@ -5,7 +5,7 @@ services:
     environment:
       MYSQL_DATABASE: ttv_torneios
       MYSQL_USER: ttv
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ttv_secret}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_change_me}
     volumes:
       - ttv_mysql_data:/var/lib/mysql
@@ -14,32 +14,46 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+    networks:
+      default:
+        aliases:
+          - mysql
+  
   backend:
+    container_name: ttv-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: mysql+pymysql://ttv:${MYSQL_PASSWORD:-change_me}@mysql:3306/ttv_torneios
+      DATABASE_URL: mysql+pymysql://ttv:${MYSQL_PASSWORD:-ttv_secret}@mysql:3306/ttv_torneios
       SECRET_KEY: ${SECRET_KEY:-troque_em_producao}
       OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-http://127.0.0.1:8000/auth/google/callback}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-    ports:
-      - "8000:8000"
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - default
+      - proxy_network  # Adicione esta linha
 
   frontend:
+    container_name: ttv-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
     depends_on:
       - backend
+    networks:
+      - default
+      - proxy_network  # Adicione esta linha
 
 volumes:
   ttv_mysql_data:
+
+networks:
+  default:
+    driver: bridge
+  proxy_network:
+    external: true
