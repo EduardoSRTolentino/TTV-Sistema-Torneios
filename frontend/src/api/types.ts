@@ -33,7 +33,11 @@ export interface Registration {
   id: number;
   tournament_id: number;
   user_id: number;
+  user_full_name: string;
+  user_rating: number;
   partner_user_id: number | null;
+  partner_full_name?: string | null;
+  partner_rating?: number | null;
   created_at: string;
 }
 

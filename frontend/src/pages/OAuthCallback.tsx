@@ -24,7 +24,7 @@ export function OAuthCallback() {
   }, [params, nav, refresh]);
 
   return (
-    <div className="card" style={{ maxWidth: 420, margin: "2rem auto" }}>
+    <div className="card page-auth" style={{ marginTop: "2rem", marginBottom: "2rem" }}>
       <h2 style={{ marginTop: 0 }}>Login OAuth</h2>
       {err ? <p className="error">{err}</p> : <p>Finalizando login…</p>}
       {!API_ORIGIN && (

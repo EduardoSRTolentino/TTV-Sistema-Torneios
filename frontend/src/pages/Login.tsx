@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import * as api from "@/api/client";
+import { PasswordField } from "@/components/PasswordField";
 import { useAuth } from "@/context/AuthContext";
 
 const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? "";
@@ -25,7 +26,7 @@ export function Login() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "0 auto" }}>
+    <div className="page-auth">
       <h2 style={{ marginTop: 0 }}>Entrar</h2>
       <form className="card" onSubmit={onSubmit}>
         <div className="field">
@@ -33,11 +34,11 @@ export function Login() {
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </div>
         <div className="field">
-          <label>Senha</label>
-          <input
-            type="password"
+          <label htmlFor="login-password">Senha</label>
+          <PasswordField
+            id="login-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
             required
             autoComplete="current-password"
           />

@@ -89,9 +89,9 @@ export function TournamentDetail() {
       </p>
       <h2 style={{ marginTop: 0 }}>{t.title}</h2>
       <p style={{ color: "var(--muted)" }}>{t.description || "Sem descrição."}</p>
-      <p>
-        <span className="badge">{t.status}</span>{" "}
-        <span style={{ color: "var(--muted)" }}>
+      <p className="meta-inline" style={{ color: "var(--muted)" }}>
+        <span className="badge">{t.status}</span>
+        <span>
           {t.game_format === "singles" ? "Individual" : "Duplas"} • {t.registrations_count}/{t.max_participants}{" "}
           inscritos
         </span>
@@ -115,7 +115,7 @@ export function TournamentDetail() {
       {canManage && (
         <div className="card" style={{ marginTop: "1rem" }}>
           <h3 style={{ marginTop: 0 }}>Organização</h3>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <div className="split-actions">
             {t.status === "registration_open" && (
               <button className="btn btn-ghost" type="button" onClick={onClose}>
                 Fechar inscrições
@@ -136,8 +136,13 @@ export function TournamentDetail() {
         <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
           {regs.map((r) => (
             <li key={r.id}>
-              #{r.id} — jogador {r.user_id}
-              {r.partner_user_id ? ` + parceiro ${r.partner_user_id}` : ""}
+              #{r.id} — {r.user_full_name ?? `jogador ${r.user_id}`} (ranking{" "}
+              {Number.isFinite(r.user_rating) ? Math.round(r.user_rating) : "—"})
+              {r.partner_user_id
+                ? ` + ${r.partner_full_name ?? `jogador ${r.partner_user_id}`} (ranking ${
+                    Number.isFinite(r.partner_rating as number) ? Math.round(r.partner_rating as number) : "—"
+                  })`
+                : ""}
             </li>
           ))}
           {!regs.length && <li style={{ color: "var(--muted)" }}>Nenhuma inscrição ainda.</li>}

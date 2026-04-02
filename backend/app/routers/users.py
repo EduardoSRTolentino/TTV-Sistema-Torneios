@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
 from app.models.user import User, UserRole
-from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.schemas.user import AdminUserUpdate, UserCreate, UserOut, UserUpdate
 from app.security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -77,6 +77,22 @@ def update_user(
         ):
             raise HTTPException(status_code=400, detail="E-mail já em uso")
         u.email = body.email
+    db.commit()
+    db.refresh(u)
+    return u
+
+
+@router.patch("/{user_id}/role", response_model=UserOut)
+def set_user_role(
+    user_id: int,
+    body: AdminUserUpdate,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    u.role = body.role
     db.commit()
     db.refresh(u)
     return u

@@ -29,15 +29,24 @@ export function Layout() {
           </Link>
           <div className="header-spacer" aria-hidden />
           <nav className={`site-nav${menuOpen ? " is-open" : ""}`} aria-label="Navegação principal">
-            <NavLink to="/torneios" className={navClass} end>
-              Torneios
-            </NavLink>
-            <NavLink to="/ranking" className={navClass}>
-              Ranking
-            </NavLink>
+            {user && (
+              <NavLink to="/torneios" className={navClass} end>
+                Torneios
+              </NavLink>
+            )}
+            {user && (
+              <NavLink to="/ranking" className={navClass}>
+                Ranking
+              </NavLink>
+            )}
             {user && (
               <NavLink to="/painel" className={navClass}>
                 Painel
+              </NavLink>
+            )}
+            {user?.role === "admin" && (
+              <NavLink to="/admin/usuarios" className={navClass}>
+                Usuários
               </NavLink>
             )}
             {(user?.role === "organizer" || user?.role === "admin") && (

@@ -13,7 +13,11 @@ class RegistrationOut(BaseModel):
     id: int
     tournament_id: int
     user_id: int
+    user_full_name: str
+    user_rating: float
     partner_user_id: Optional[int]
+    partner_full_name: Optional[str] = None
+    partner_rating: Optional[float] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

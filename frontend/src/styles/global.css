@@ -25,11 +25,14 @@
 
 html {
   overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: clip;
   background: radial-gradient(1200px 600px at 10% -10%, rgba(249, 115, 22, 0.12), transparent),
     radial-gradient(900px 500px at 90% 0%, rgba(225, 29, 72, 0.1), transparent), var(--bg);
@@ -66,8 +69,48 @@ textarea {
 .container {
   width: min(1100px, 100%);
   margin: 0 auto;
-  padding-left: var(--container-pad);
-  padding-right: var(--container-pad);
+  padding-left: max(var(--container-pad), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--container-pad), env(safe-area-inset-right, 0px));
+}
+
+/* Formulários e blocos estreitos centralizados (telas estreitas usam 100% da largura útil) */
+.page-auth,
+.page-narrow {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.page-auth {
+  max-width: 420px;
+}
+
+.page-narrow {
+  max-width: 560px;
+}
+
+.meta-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+}
+
+.meta-inline .badge {
+  flex-shrink: 0;
+}
+
+.split-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 479px) {
+  .split-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
 }
 
 .card {
@@ -131,6 +174,42 @@ textarea {
   max-width: 100%;
 }
 
+.field-password {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+.field-password input {
+  padding-right: 4.25rem;
+}
+
+.btn-password-toggle {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.btn-password-toggle:hover {
+  background: rgba(225, 29, 72, 0.08);
+}
+
+.btn-password-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .badge {
   display: inline-block;
   padding: 0.2rem 0.55rem;
@@ -161,6 +240,10 @@ textarea {
   grid-template-columns: 1fr;
   gap: clamp(1rem, 4vw, 1.5rem);
   align-items: start;
+}
+
+.grid-2 > * {
+  min-width: 0;
 }
 
 @media (min-width: 768px) {
@@ -196,6 +279,7 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 100;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .header-row {
@@ -209,7 +293,7 @@ textarea {
 
 .header-brand {
   font-weight: 800;
-  font-size: clamp(0.95rem, 3vw, 1.1rem);
+  font-size: clamp(0.85rem, 2.8vw, 1.1rem);
   font-family: "Orbitron", "Inter", sans-serif;
   letter-spacing: 0.04em;
   color: var(--accent);
@@ -302,6 +386,14 @@ textarea {
 }
 
 @media (max-width: 767px) {
+  .header-brand {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .menu-toggle {
     display: flex;
   }
@@ -320,7 +412,8 @@ textarea {
     align-items: stretch;
     flex-wrap: nowrap;
     gap: 0;
-    padding: 1rem var(--container-pad) 2rem;
+    padding: 1rem max(var(--container-pad), env(safe-area-inset-left, 0px))
+      max(2rem, env(safe-area-inset-bottom, 0px)) max(var(--container-pad), env(safe-area-inset-right, 0px));
     background: var(--surface);
     border-top: 1px solid var(--line);
     box-shadow: var(--shadow);
@@ -368,7 +461,7 @@ textarea {
 /* Footer */
 .site-footer {
   border-top: 1px solid var(--line);
-  padding: 1.25rem 0 1.75rem;
+  padding: 1.25rem 0 max(1.75rem, env(safe-area-inset-bottom, 0px));
   color: var(--muted);
   font-size: 0.9rem;
   text-align: center;
@@ -424,6 +517,19 @@ textarea {
 
 .data-table td {
   border-bottom: 1px solid var(--line);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 479px) {
+  .data-table {
+    font-size: 0.88rem;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.45rem 0.25rem;
+  }
 }
 
 /* Cards de torneio em lista */
@@ -433,6 +539,18 @@ textarea {
   align-items: flex-start;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.tournament-row > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tournament-row strong {
+  display: inline-block;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 479px) {
@@ -446,16 +564,39 @@ textarea {
   }
 }
 
+/* Títulos principais (fluidos, sem estourar em mobile) */
+.site-main h1 {
+  font-size: clamp(1.45rem, 5vw, 2.6rem);
+  line-height: 1.15;
+  margin: 0 0 0.75rem;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.site-main h2 {
+  font-size: clamp(1.2rem, 3.8vw, 1.85rem);
+  line-height: 1.2;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.site-main h3 {
+  font-size: clamp(1rem, 2.4vw, 1.2rem);
+  line-height: 1.3;
+}
+
 /* Main */
 .site-main {
   padding-top: 1.25rem;
-  padding-bottom: 2.5rem;
+  padding-bottom: max(2.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 768px) {
   .site-main {
     padding-top: 1.5rem;
-    padding-bottom: 3rem;
+    padding-bottom: max(3rem, env(safe-area-inset-bottom, 0px));
   }
 }
 

@@ -31,7 +31,7 @@ export function CreateTournament() {
   }
 
   return (
-    <div style={{ maxWidth: 560, margin: "0 auto" }}>
+    <div className="page-narrow">
       <h2 style={{ marginTop: 0 }}>Novo torneio</h2>
       <form className="card" onSubmit={onSubmit}>
         <div className="field">

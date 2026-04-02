@@ -8,18 +8,20 @@ def run():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        if db.query(User).filter(User.email == "admin@ttv.local").first():
+        # Use a valid domain: Pydantic EmailStr rejects special-use TLDs like `.local`.
+        admin_email = "admin@ttv.com"
+        if db.query(User).filter(User.email == admin_email).first():
             print("Admin já existe.")
             return
         admin = User(
-            email="admin@ttv.local",
-            hashed_password=hash_password("admin123"),
+            email=admin_email,
+            hashed_password=hash_password("Admin123!"),
             full_name="Administrador TTV",
             role=UserRole.admin,
         )
         db.add(admin)
         db.commit()
-        print("Criado admin@ttv.local / admin123 (altere em produção).")
+        print(f"Criado {admin_email} / Admin123! (altere em produção).")
     finally:
         db.close()
 

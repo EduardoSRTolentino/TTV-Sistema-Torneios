@@ -11,6 +11,7 @@ import { CreateTournament } from "@/pages/CreateTournament";
 import { OAuthCallback } from "@/pages/OAuthCallback";
 import { Ranking } from "@/pages/Ranking";
 import { useAuth } from "@/context/AuthContext";
+import { AdminUsers } from "@/pages/AdminUsers";
 
 function OrgOnly({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -18,6 +19,16 @@ function OrgOnly({ children }: { children: React.ReactNode }) {
   if (!user) return <Navigate to="/entrar" replace />;
   if (user.role !== "organizer" && user.role !== "admin") {
     return <p>Apenas organizadores ou administradores podem acessar esta página.</p>;
+  }
+  return <>{children}</>;
+}
+
+function AdminOnly({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <p>Carregando…</p>;
+  if (!user) return <Navigate to="/entrar" replace />;
+  if (user.role !== "admin") {
+    return <p>Apenas administradores podem acessar esta página.</p>;
   }
   return <>{children}</>;
 }
@@ -30,8 +41,22 @@ export default function App() {
         <Route path="/entrar" element={<Login />} />
         <Route path="/cadastro" element={<Register />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
-        <Route path="/ranking" element={<Ranking />} />
-        <Route path="/torneios" element={<TournamentList />} />
+        <Route
+          path="/ranking"
+          element={
+            <Protected>
+              <Ranking />
+            </Protected>
+          }
+        />
+        <Route
+          path="/torneios"
+          element={
+            <Protected>
+              <TournamentList />
+            </Protected>
+          }
+        />
         <Route
           path="/torneios/novo"
           element={
@@ -42,12 +67,29 @@ export default function App() {
             </Protected>
           }
         />
-        <Route path="/torneios/:id" element={<TournamentDetail />} />
+        <Route
+          path="/torneios/:id"
+          element={
+            <Protected>
+              <TournamentDetail />
+            </Protected>
+          }
+        />
         <Route
           path="/painel"
           element={
             <Protected>
               <Dashboard />
+            </Protected>
+          }
+        />
+        <Route
+          path="/admin/usuarios"
+          element={
+            <Protected>
+              <AdminOnly>
+                <AdminUsers />
+              </AdminOnly>
             </Protected>
           }
         />

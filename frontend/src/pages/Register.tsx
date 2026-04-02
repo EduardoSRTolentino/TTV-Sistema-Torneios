@@ -1,7 +1,23 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import * as api from "@/api/client";
+import { PasswordField } from "@/components/PasswordField";
 import { useAuth } from "@/context/AuthContext";
+import { PASSWORD_HINT, passwordValidationError } from "@/lib/passwordRules";
+import axios from "axios";
+
+function registerErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const d = err.response?.data as { detail?: unknown } | undefined;
+    const detail = d?.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail) && detail.length > 0 && typeof detail[0] === "object" && detail[0] !== null) {
+      const msg = (detail[0] as { msg?: string }).msg;
+      if (msg) return msg;
+    }
+  }
+  return "Não foi possível cadastrar. Verifique os dados ou se o e-mail já existe.";
+}
 
 export function Register() {
   const nav = useNavigate();
@@ -14,18 +30,23 @@ export function Register() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    const pwdErr = passwordValidationError(password);
+    if (pwdErr) {
+      setErr(pwdErr);
+      return;
+    }
     try {
       await api.register({ email, password, full_name });
       await api.login(email, password);
       await refresh();
       nav("/painel");
-    } catch {
-      setErr("Não foi possível cadastrar. Verifique os dados ou se o e-mail já existe.");
+    } catch (err) {
+      setErr(registerErrorMessage(err));
     }
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "0 auto" }}>
+    <div className="page-auth">
       <h2 style={{ marginTop: 0 }}>Cadastro</h2>
       <form className="card" onSubmit={onSubmit}>
         <div className="field">
@@ -37,8 +58,17 @@ export function Register() {
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div className="field">
-          <label>Senha (mín. 6)</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+          <label htmlFor="register-password">Senha</label>
+          <PasswordField
+            id="register-password"
+            value={password}
+            onChange={setPassword}
+            required
+            autoComplete="new-password"
+          />
+          <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.4 }}>
+            {PASSWORD_HINT}
+          </p>
         </div>
         {err && <p className="error">{err}</p>}
         <button className="btn btn-primary" type="submit" style={{ width: "100%" }}>

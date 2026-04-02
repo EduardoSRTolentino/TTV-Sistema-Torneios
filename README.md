@@ -59,7 +59,7 @@ Interface em **português**, **responsiva** (desktop e mobile), estilo inspirado
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/SEU_USUARIO/TTV-Sistem.git
+git clone https://github.com/EduardoSRTolentino/TTV-Sistema-Torneios.git
 cd TTV-Sistem
 ```
 
@@ -92,7 +92,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 - API: `http://127.0.0.1:8000`
 - Health: `GET /health`
-- Usuário inicial (seed): `admin@ttv.local` / `admin123` — **altere em produção**
+- Usuário inicial (seed): `admin@ttv.com` / `Admin123!` — **altere em produção**
 
 ### 4. Frontend
 

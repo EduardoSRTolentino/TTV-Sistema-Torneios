@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { BracketMatch, Registration, Tournament, User } from "./types";
+import type { BracketMatch, Registration, Tournament, User, UserRole } from "./types";
 
 const api = axios.create({
   baseURL: "/api",
@@ -100,6 +100,16 @@ export async function setWinner(matchId: number, winner_registration_id: number)
   const { data } = await api.post<BracketMatch>(`/tournaments/partidas/${matchId}/vencedor`, {
     winner_registration_id,
   });
+  return data;
+}
+
+export async function listUsers() {
+  const { data } = await api.get<User[]>("/users");
+  return data;
+}
+
+export async function setUserRole(userId: number, role: UserRole) {
+  const { data } = await api.patch<User>(`/users/${userId}/role`, { role });
   return data;
 }
 

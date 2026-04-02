@@ -6,6 +6,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models.elo import EloRating
 from app.models.user import User
 
@@ -22,7 +23,11 @@ class RankingRow(BaseModel):
 
 
 @router.get("", response_model=List[RankingRow])
-def global_ranking(limit: int = 100, db: Session = Depends(get_db)):
+def global_ranking(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     rows = (
         db.query(EloRating, User)
         .join(User, User.id == EloRating.user_id)

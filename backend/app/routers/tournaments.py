@@ -3,10 +3,12 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_roles
+from app.models.elo import EloRating
 from app.models.registration import TournamentRegistration
 from app.models.tournament import GameFormat, Tournament, TournamentStatus
 from app.models.user import User, UserRole
@@ -32,13 +34,20 @@ def _tournament_out(db: Session, t: Tournament) -> TournamentOut:
 
 
 @router.get("", response_model=List[TournamentOut])
-def list_tournaments(db: Session = Depends(get_db)):
+def list_tournaments(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     rows = db.query(Tournament).order_by(Tournament.created_at.desc()).all()
     return [_tournament_out(db, t) for t in rows]
 
 
 @router.get("/{tournament_id}", response_model=TournamentOut)
-def get_tournament(tournament_id: int, db: Session = Depends(get_db)):
+def get_tournament(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Torneio não encontrado")
@@ -169,16 +178,47 @@ def register_player(
 
 
 @router.get("/{tournament_id}/inscricoes", response_model=List[RegistrationOut])
-def list_registrations(tournament_id: int, db: Session = Depends(get_db)):
+def list_registrations(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Torneio não encontrado")
-    return (
-        db.query(TournamentRegistration)
+
+    U1 = aliased(User)
+    U2 = aliased(User)
+    E1 = aliased(EloRating)
+    E2 = aliased(EloRating)
+
+    rows = (
+        db.query(TournamentRegistration, U1, E1, U2, E2)
+        .join(U1, U1.id == TournamentRegistration.user_id)
+        .outerjoin(E1, E1.user_id == U1.id)
+        .outerjoin(U2, U2.id == TournamentRegistration.partner_user_id)
+        .outerjoin(E2, E2.user_id == U2.id)
         .filter(TournamentRegistration.tournament_id == tournament_id)
         .order_by(TournamentRegistration.id)
         .all()
     )
+
+    out: List[RegistrationOut] = []
+    for reg, user, elo, partner, partner_elo in rows:
+        out.append(
+            RegistrationOut(
+                id=reg.id,
+                tournament_id=reg.tournament_id,
+                user_id=reg.user_id,
+                user_full_name=user.full_name,
+                user_rating=float(elo.rating) if elo else 1500.0,
+                partner_user_id=reg.partner_user_id,
+                partner_full_name=(partner.full_name if partner else None),
+                partner_rating=(float(partner_elo.rating) if partner_elo else (1500.0 if partner else None)),
+                created_at=reg.created_at,
+            )
+        )
+    return out
 
 
 @router.post("/{tournament_id}/gerar-chaveamento", response_model=List[BracketMatchOut])
@@ -200,7 +240,11 @@ def generate_bracket(tournament_id: int, db: Session = Depends(get_db), user: Us
 
 
 @router.get("/{tournament_id}/chaveamento", response_model=List[BracketMatchOut])
-def get_bracket(tournament_id: int, db: Session = Depends(get_db)):
+def get_bracket(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     if not db.query(Tournament).filter(Tournament.id == tournament_id).first():
         raise HTTPException(404, "Torneio não encontrado")
     return (
