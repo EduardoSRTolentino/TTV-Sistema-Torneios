@@ -113,9 +113,14 @@ def update_user(
 def set_user_role(
     user_id: int,
     body: AdminUserUpdate,
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    if admin.id == user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Administradores não podem alterar o próprio cargo.",
+        )
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")

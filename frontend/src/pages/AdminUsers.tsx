@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { isAxiosError } from "axios";
 import * as api from "@/api/client";
 import type { User, UserRole } from "@/api/types";
+import { useAuth } from "@/context/AuthContext";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -11,15 +13,28 @@ function formatDate(iso: string) {
 function roleLabel(r: UserRole) {
   switch (r) {
     case "admin":
-      return "admin";
+      return "Administrador";
     case "organizer":
-      return "organizer";
+      return "Organizador";
     case "player":
-      return "player";
+      return "Jogador";
   }
 }
 
+function apiDetailMessage(e: unknown): string | null {
+  if (!isAxiosError(e)) return null;
+  const d = e.response?.data as { detail?: unknown } | undefined;
+  const detail = d?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail.map((x: { msg?: string }) => x.msg).filter(Boolean);
+    if (parts.length) return parts.join("; ");
+  }
+  return null;
+}
+
 export function AdminUsers() {
+  const { user: currentUser } = useAuth();
   const [rows, setRows] = useState<User[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,6 +42,8 @@ export function AdminUsers() {
   const [msg, setMsg] = useState<string | null>(null);
   const [rankDraft, setRankDraft] = useState<Record<number, string>>({});
   const [rankSavingId, setRankSavingId] = useState<number | null>(null);
+  const [roleDraft, setRoleDraft] = useState<Partial<Record<number, UserRole>>>({});
+  const [roleSavingId, setRoleSavingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -34,6 +51,7 @@ export function AdminUsers() {
     try {
       const data = await api.listUsers();
       setRows(data);
+      setRoleDraft({});
     } catch {
       setErr("Não foi possível carregar usuários.");
     } finally {
@@ -51,15 +69,30 @@ export function AdminUsers() {
     return rows.filter((u) => (u.full_name + " " + u.email).toLowerCase().includes(term));
   }, [rows, q]);
 
-  async function onChangeRole(u: User, role: UserRole) {
+  function effectiveRole(u: User): UserRole {
+    return roleDraft[u.id] ?? u.role;
+  }
+
+  async function onSaveRole(u: User) {
+    if (currentUser && u.id === currentUser.id) return;
+    const next = effectiveRole(u);
+    if (next === u.role) return;
     setErr(null);
     setMsg(null);
+    setRoleSavingId(u.id);
     try {
-      const updated = await api.setUserRole(u.id, role);
+      const updated = await api.setUserRole(u.id, next);
       setRows((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
-      setMsg(`Usuário ${updated.email} atualizado para ${updated.role}.`);
-    } catch {
-      setErr("Não foi possível atualizar o papel do usuário.");
+      setRoleDraft((d) => {
+        const nextDraft = { ...d };
+        delete nextDraft[u.id];
+        return nextDraft;
+      });
+      setMsg(`Cargo de ${updated.full_name} atualizado para ${roleLabel(updated.role)}.`);
+    } catch (e) {
+      setErr(apiDetailMessage(e) ?? "Não foi possível atualizar o cargo.");
+    } finally {
+      setRoleSavingId(null);
     }
   }
 
@@ -99,7 +132,8 @@ export function AdminUsers() {
     <div>
       <h2 style={{ marginTop: 0 }}>Administração • Usuários</h2>
       <p style={{ color: "var(--muted)" }}>
-        Promova jogadores a <strong>organizer</strong> para que eles possam criar torneios.
+        Apenas administradores alteram cargos. Promova jogadores a <strong>organizador</strong> para que criem torneios. Você
+        não pode alterar o próprio cargo.
       </p>
 
       <div className="card" style={{ marginTop: "1rem" }}>
@@ -130,9 +164,9 @@ export function AdminUsers() {
                   <th style={{ padding: "0.5rem 0.25rem" }}>Nome</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>E-mail</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>Ranking (ELO)</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>Papel</th>
+                  <th style={{ padding: "0.5rem 0.25rem" }}>Cargo atual</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>Criado em</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>Ações</th>
+                  <th style={{ padding: "0.5rem 0.25rem" }}>Alterar cargo</th>
                 </tr>
               </thead>
               <tbody>
@@ -173,16 +207,38 @@ export function AdminUsers() {
                     </td>
                     <td style={{ padding: "0.5rem 0.25rem", color: "var(--muted)" }}>{formatDate(u.created_at)}</td>
                     <td style={{ padding: "0.5rem 0.25rem" }}>
-                      <select
-                        value={u.role}
-                        onChange={(e) => onChangeRole(u, e.target.value as UserRole)}
-                        className="select"
-                        aria-label={`Alterar papel de ${u.email}`}
-                      >
-                        <option value="player">player</option>
-                        <option value="organizer">organizer</option>
-                        <option value="admin">admin</option>
-                      </select>
+                      {currentUser && u.id === currentUser.id ? (
+                        <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                          Não é possível alterar seu próprio cargo.
+                        </span>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                          <select
+                            value={effectiveRole(u)}
+                            onChange={(e) =>
+                              setRoleDraft((d) => ({
+                                ...d,
+                                [u.id]: e.target.value as UserRole,
+                              }))
+                            }
+                            className="select"
+                            aria-label={`Novo cargo de ${u.email}`}
+                          >
+                            <option value="player">Jogador</option>
+                            <option value="organizer">Organizador</option>
+                            <option value="admin">Administrador</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: "0.35rem 0.5rem", fontSize: "0.85rem" }}
+                            disabled={roleSavingId === u.id || effectiveRole(u) === u.role}
+                            onClick={() => onSaveRole(u)}
+                          >
+                            {roleSavingId === u.id ? "…" : "Salvar cargo"}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
