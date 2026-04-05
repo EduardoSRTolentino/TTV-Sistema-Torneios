@@ -67,6 +67,8 @@ def create_tournament(
         game_format=body.game_format,
         bracket_format=body.bracket_format,
         max_participants=body.max_participants,
+        registration_fee=body.registration_fee,
+        prize=body.prize,
         registration_deadline=body.registration_deadline,
         status=TournamentStatus.draft,
     )
@@ -76,23 +78,48 @@ def create_tournament(
     return _tournament_out(db, t)
 
 
-@router.patch("/{tournament_id}", response_model=TournamentOut)
-def update_tournament(
+def _update_tournament_impl(
     tournament_id: int,
     body: TournamentUpdate,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+    db: Session,
+    user: User,
+) -> TournamentOut:
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Torneio não encontrado")
     if user.role != UserRole.admin and t.organizer_id != user.id:
-        raise HTTPException(403, "Apenas o organizador ou admin")
-    for k, v in body.model_dump(exclude_unset=True).items():
+        raise HTTPException(403, "Você não tem permissão para editar este torneio")
+
+    data = body.model_dump(exclude_unset=True)
+    if "max_participants" in data:
+        cnt = (
+            db.query(func.count(TournamentRegistration.id))
+            .filter(TournamentRegistration.tournament_id == tournament_id)
+            .scalar()
+        )
+        registered = int(cnt or 0)
+        if data["max_participants"] < registered:
+            raise HTTPException(
+                400,
+                "Número de vagas não pode ser menor que o total de inscritos",
+            )
+
+    for k, v in data.items():
         setattr(t, k, v)
     db.commit()
     db.refresh(t)
     return _tournament_out(db, t)
+
+
+@router.api_route("/{tournament_id}", methods=["PUT", "PATCH"], response_model=TournamentOut)
+def update_tournament(
+    tournament_id: int,
+    body: TournamentUpdate,
+    db: Session = Depends(get_db),
+    user: User = _org,
+):
+    """Admin pode editar qualquer torneio; organizador apenas os que criou."""
+    return _update_tournament_impl(tournament_id, body, db, user)
 
 
 @router.post("/{tournament_id}/abrir-inscricoes", response_model=TournamentOut)

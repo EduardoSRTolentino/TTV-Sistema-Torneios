@@ -94,8 +94,14 @@ export function TournamentDetail() {
         <span>
           {t.game_format === "singles" ? "Individual" : "Duplas"} • {t.registrations_count}/{t.max_participants}{" "}
           inscritos
+          {(t.registration_fee ?? 0) > 0 ? ` • Inscrição: R$ ${(t.registration_fee ?? 0).toFixed(2)}` : ""}
         </span>
       </p>
+      {t.prize ? (
+        <p style={{ marginTop: "0.5rem" }}>
+          <strong>Premiação:</strong> {t.prize}
+        </p>
+      ) : null}
 
       {user && t.status === "registration_open" && (
         <form className="card" onSubmit={onRegister} style={{ marginTop: "1rem" }}>
@@ -116,6 +122,9 @@ export function TournamentDetail() {
         <div className="card" style={{ marginTop: "1rem" }}>
           <h3 style={{ marginTop: 0 }}>Organização</h3>
           <div className="split-actions">
+            <Link className="btn btn-ghost" to={`/torneios/${t.id}/editar`}>
+              Editar torneio
+            </Link>
             {t.status === "registration_open" && (
               <button className="btn btn-ghost" type="button" onClick={onClose}>
                 Fechar inscrições

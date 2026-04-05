@@ -24,6 +24,8 @@ export interface Tournament {
   game_format: "singles" | "doubles";
   bracket_format: "knockout" | "group_knockout";
   max_participants: number;
+  registration_fee: number;
+  prize: string | null;
   registration_deadline: string | null;
   status: TournamentStatus;
   created_at: string;

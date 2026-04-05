@@ -8,6 +8,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { TournamentList } from "@/pages/TournamentList";
 import { TournamentDetail } from "@/pages/TournamentDetail";
 import { CreateTournament } from "@/pages/CreateTournament";
+import { EditTournament } from "@/pages/EditTournament";
 import { OAuthCallback } from "@/pages/OAuthCallback";
 import { Ranking } from "@/pages/Ranking";
 import { useAuth } from "@/context/AuthContext";
@@ -73,6 +74,16 @@ export default function App() {
           element={
             <Protected>
               <TournamentDetail />
+            </Protected>
+          }
+        />
+        <Route
+          path="/torneios/:id/editar"
+          element={
+            <Protected>
+              <OrgOnly>
+                <EditTournament />
+              </OrgOnly>
             </Protected>
           }
         />

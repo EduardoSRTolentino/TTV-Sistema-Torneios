@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.tournament import GameFormat, BracketFormat, TournamentStatus
 
@@ -12,15 +12,37 @@ class TournamentCreate(BaseModel):
     game_format: GameFormat = GameFormat.singles
     bracket_format: BracketFormat = BracketFormat.knockout
     max_participants: int = Field(ge=2, le=512)
+    registration_fee: float = Field(default=0.0, ge=0)
+    prize: Optional[str] = None
     registration_deadline: Optional[datetime] = None
 
 
 class TournamentUpdate(BaseModel):
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=200)
     description: Optional[str] = None
     max_participants: Optional[int] = Field(default=None, ge=2, le=512)
+    registration_fee: Optional[float] = Field(default=None, ge=0)
+    prize: Optional[str] = None
     registration_deadline: Optional[datetime] = None
     status: Optional[TournamentStatus] = None
+
+    @field_validator("title")
+    @classmethod
+    def strip_title(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            raise ValueError("O nome do torneio não pode ser vazio")
+        return s
+
+    @field_validator("prize")
+    @classmethod
+    def empty_prize_to_none(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        return s if s else None
 
 
 class TournamentOut(BaseModel):
@@ -31,6 +53,8 @@ class TournamentOut(BaseModel):
     game_format: GameFormat
     bracket_format: BracketFormat
     max_participants: int
+    registration_fee: float
+    prize: Optional[str]
     registration_deadline: Optional[datetime]
     status: TournamentStatus
     created_at: datetime

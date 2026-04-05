@@ -51,9 +51,25 @@ export async function createTournament(payload: {
   game_format: "singles" | "doubles";
   bracket_format: "knockout" | "group_knockout";
   max_participants: number;
+  registration_fee?: number;
+  prize?: string | null;
   registration_deadline?: string | null;
 }) {
   const { data } = await api.post<Tournament>("/tournaments", payload);
+  return data;
+}
+
+export async function updateTournament(
+  id: number,
+  payload: {
+    title: string;
+    max_participants: number;
+    registration_fee: number;
+    prize?: string | null;
+    registration_deadline?: string | null;
+  },
+) {
+  const { data } = await api.patch<Tournament>(`/tournaments/${id}`, payload);
   return data;
 }
 
