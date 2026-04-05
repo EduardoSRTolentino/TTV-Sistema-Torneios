@@ -12,6 +12,7 @@ import { OAuthCallback } from "@/pages/OAuthCallback";
 import { Ranking } from "@/pages/Ranking";
 import { useAuth } from "@/context/AuthContext";
 import { AdminUsers } from "@/pages/AdminUsers";
+import { AdminSettings } from "@/pages/AdminSettings";
 
 function OrgOnly({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -89,6 +90,16 @@ export default function App() {
             <Protected>
               <AdminOnly>
                 <AdminUsers />
+              </AdminOnly>
+            </Protected>
+          }
+        />
+        <Route
+          path="/admin/configuracoes"
+          element={
+            <Protected>
+              <AdminOnly>
+                <AdminSettings />
               </AdminOnly>
             </Protected>
           }

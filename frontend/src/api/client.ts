@@ -113,4 +113,19 @@ export async function setUserRole(userId: number, role: UserRole) {
   return data;
 }
 
+export async function getSystemSettings() {
+  const { data } = await api.get<{ id: number; initial_ranking: number }>("/system-settings");
+  return data;
+}
+
+export async function patchSystemSettings(payload: { initial_ranking: number }) {
+  const { data } = await api.patch<{ id: number; initial_ranking: number }>("/system-settings", payload);
+  return data;
+}
+
+export async function patchUserRanking(userId: number, ranking: number) {
+  const { data } = await api.patch<User>(`/users/${userId}/ranking`, { ranking });
+  return data;
+}
+
 export { api };

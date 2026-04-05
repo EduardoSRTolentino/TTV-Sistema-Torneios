@@ -25,6 +25,8 @@ export function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [rankDraft, setRankDraft] = useState<Record<number, string>>({});
+  const [rankSavingId, setRankSavingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -58,6 +60,38 @@ export function AdminUsers() {
       setMsg(`Usuário ${updated.email} atualizado para ${updated.role}.`);
     } catch {
       setErr("Não foi possível atualizar o papel do usuário.");
+    }
+  }
+
+  function rankInputValue(u: User) {
+    if (rankDraft[u.id] !== undefined) return rankDraft[u.id]!;
+    if (u.rating != null && Number.isFinite(u.rating)) return String(u.rating);
+    return "";
+  }
+
+  async function onSaveRanking(u: User) {
+    setErr(null);
+    setMsg(null);
+    const raw = rankInputValue(u).trim();
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+      setErr("Ranking inválido: informe um número ≥ 0.");
+      return;
+    }
+    setRankSavingId(u.id);
+    try {
+      const updated = await api.patchUserRanking(u.id, n);
+      setRows((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
+      setRankDraft((d) => {
+        const next = { ...d };
+        delete next[u.id];
+        return next;
+      });
+      setMsg(`Ranking de ${updated.full_name} atualizado.`);
+    } catch {
+      setErr("Não foi possível atualizar o ranking.");
+    } finally {
+      setRankSavingId(null);
     }
   }
 
@@ -95,6 +129,7 @@ export function AdminUsers() {
                   <th style={{ padding: "0.5rem 0.25rem" }}>ID</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>Nome</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>E-mail</th>
+                  <th style={{ padding: "0.5rem 0.25rem" }}>Ranking (ELO)</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>Papel</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>Criado em</th>
                   <th style={{ padding: "0.5rem 0.25rem" }}>Ações</th>
@@ -106,6 +141,33 @@ export function AdminUsers() {
                     <td style={{ padding: "0.5rem 0.25rem", color: "var(--muted)" }}>#{u.id}</td>
                     <td style={{ padding: "0.5rem 0.25rem" }}>{u.full_name}</td>
                     <td style={{ padding: "0.5rem 0.25rem", color: "var(--muted)" }}>{u.email}</td>
+                    <td style={{ padding: "0.5rem 0.25rem", minWidth: "11rem" }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={rankInputValue(u)}
+                          onChange={(e) =>
+                            setRankDraft((d) => ({
+                              ...d,
+                              [u.id]: e.target.value,
+                            }))
+                          }
+                          style={{ width: "6.5rem" }}
+                          aria-label={`Ranking ELO de ${u.full_name}`}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ padding: "0.35rem 0.5rem", fontSize: "0.85rem" }}
+                          disabled={rankSavingId === u.id}
+                          onClick={() => onSaveRanking(u)}
+                        >
+                          {rankSavingId === u.id ? "…" : "Salvar"}
+                        </button>
+                      </div>
+                    </td>
                     <td style={{ padding: "0.5rem 0.25rem" }}>
                       <span className="badge">{roleLabel(u.role)}</span>
                     </td>
@@ -126,7 +188,7 @@ export function AdminUsers() {
                 ))}
                 {!filtered.length && (
                   <tr>
-                    <td colSpan={6} style={{ padding: "0.75rem 0.25rem", color: "var(--muted)" }}>
+                    <td colSpan={7} style={{ padding: "0.75rem 0.25rem", color: "var(--muted)" }}>
                       Nenhum usuário encontrado.
                     </td>
                   </tr>

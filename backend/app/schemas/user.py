@@ -29,12 +29,17 @@ class AdminUserUpdate(BaseModel):
     role: UserRole
 
 
+class UserRankingPatch(BaseModel):
+    ranking: float = Field(ge=0)
+
+
 class UserOut(BaseModel):
     id: int
     email: str
     full_name: str
     role: UserRole
     created_at: datetime
+    rating: Optional[float] = None
 
     model_config = {"from_attributes": True}
 

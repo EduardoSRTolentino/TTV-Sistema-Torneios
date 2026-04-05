@@ -3,9 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.elo import EloRating
 from app.models.user import User, UserRole
 from app.schemas.user import LoginRequest, Token, UserCreate, UserOut
 from app.security import create_access_token, hash_password, verify_password
+from app.services import system_settings_service as settings_svc
+from app.services.user_presenter import user_to_out
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -22,9 +25,12 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
         role=UserRole.player,
     )
     db.add(user)
+    db.flush()
+    init = settings_svc.get_initial_ranking_float(db)
+    db.add(EloRating(user_id=user.id, rating=init, games_played=0))
     db.commit()
     db.refresh(user)
-    return user
+    return user_to_out(db, user)
 
 
 @router.post("/login", response_model=Token)
@@ -37,5 +43,8 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserOut)
-def me(user: User = Depends(get_current_user)):
-    return user
+def me(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return user_to_out(db, user)

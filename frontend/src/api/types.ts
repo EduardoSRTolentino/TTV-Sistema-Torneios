@@ -6,6 +6,7 @@ export interface User {
   full_name: string;
   role: UserRole;
   created_at: string;
+  rating?: number | null;
 }
 
 export type TournamentStatus =

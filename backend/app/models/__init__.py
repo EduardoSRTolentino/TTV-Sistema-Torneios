@@ -7,6 +7,7 @@ from app.models.payment import Payment, PaymentStatus
 from app.models.report import Report, ReportStatus
 from app.models.elo import EloRating
 from app.models.audit_log import AuditLog
+from app.models.system_settings import SystemSettings
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "ReportStatus",
     "EloRating",
     "AuditLog",
+    "SystemSettings",
 ]

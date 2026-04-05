@@ -2,13 +2,14 @@
 from sqlalchemy.orm import Session
 
 from app.models.elo import EloRating
+from app.services import system_settings_service as settings_svc
 
 
 def get_or_create_rating(db: Session, user_id: int) -> EloRating:
     row = db.query(EloRating).filter(EloRating.user_id == user_id).first()
     if row:
         return row
-    row = EloRating(user_id=user_id)
+    row = EloRating(user_id=user_id, rating=settings_svc.get_initial_ranking_float(db))
     db.add(row)
     db.flush()
     return row

@@ -5,9 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
+from app.models.elo import EloRating
 from app.models.user import User, UserRole
-from app.schemas.user import AdminUserUpdate, UserCreate, UserOut, UserUpdate
+from app.schemas.user import AdminUserUpdate, UserCreate, UserOut, UserRankingPatch, UserUpdate
 from app.security import hash_password
+from app.services import system_settings_service as settings_svc
+from app.services.user_presenter import user_to_out
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -17,7 +20,8 @@ def list_users(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    return db.query(User).order_by(User.id).all()
+    users = db.query(User).order_by(User.id).all()
+    return [user_to_out(db, u) for u in users]
 
 
 @router.get("/{user_id}", response_model=UserOut)
@@ -31,7 +35,7 @@ def get_user(
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return u
+    return user_to_out(db, u)
 
 
 @router.post("", response_model=UserOut)
@@ -49,9 +53,32 @@ def create_user(
         role=body.role,
     )
     db.add(user)
+    db.flush()
+    init = settings_svc.get_initial_ranking_float(db)
+    db.add(EloRating(user_id=user.id, rating=init, games_played=0))
     db.commit()
     db.refresh(user)
-    return user
+    return user_to_out(db, user)
+
+
+@router.patch("/{user_id}/ranking", response_model=UserOut)
+def patch_user_ranking(
+    user_id: int,
+    body: UserRankingPatch,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    elo = db.query(EloRating).filter(EloRating.user_id == user_id).first()
+    if elo is None:
+        db.add(EloRating(user_id=user_id, rating=body.ranking, games_played=0))
+    else:
+        elo.rating = body.ranking
+    db.commit()
+    db.refresh(u)
+    return user_to_out(db, u)
 
 
 @router.patch("/{user_id}", response_model=UserOut)
@@ -79,7 +106,7 @@ def update_user(
         u.email = body.email
     db.commit()
     db.refresh(u)
-    return u
+    return user_to_out(db, u)
 
 
 @router.patch("/{user_id}/role", response_model=UserOut)
@@ -95,4 +122,4 @@ def set_user_role(
     u.role = body.role
     db.commit()
     db.refresh(u)
-    return u
+    return user_to_out(db, u)

@@ -11,7 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.routers import admin_audit, auth, oauth_google, payments, ranking, reports, tournaments, users
+from app.routers import admin_audit, auth, oauth_google, payments, ranking, reports, system_settings, tournaments, users
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ttv")
@@ -54,6 +54,7 @@ def health():
 app.include_router(auth.router)
 app.include_router(oauth_google.router)
 app.include_router(users.router)
+app.include_router(system_settings.router)
 app.include_router(tournaments.router)
 app.include_router(ranking.router)
 app.include_router(reports.router)

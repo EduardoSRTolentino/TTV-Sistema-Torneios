@@ -153,10 +153,10 @@ Os testes de health usam SQLite via `tests/conftest.py` (não exigem MySQL).
 
 ## Docker
 
-- **Desenvolvimento:** `docker-compose.yml` — apenas MySQL.
-- **Referência de deploy:** `docker-compose.prod.yml` — MySQL + build do backend e frontend (ajuste variáveis e domínios).
+- **Desenvolvimento:** `docker-compose.yml` — MySQL, backend e frontend com **bind mount** do código (`./backend` → `/app`, `./frontend` → `/app`). Imagens usam `Dockerfile.dev` (só dependências); hot reload: `uvicorn --reload` e Vite dev server. API em `http://localhost:8000`, front em `http://localhost:5173`. Requer rede externa `proxy_network` se você a usar no compose; caso contrário, remova-a do arquivo.
+- **Referência de deploy:** `docker-compose.prod.yml` — imagem com código copiado (`Dockerfile`).
 
-Imagens: `backend/Dockerfile` e `frontend/Dockerfile`.
+Imagens: dev — `backend/Dockerfile.dev`, `frontend/Dockerfile.dev`; produção — `backend/Dockerfile`, `frontend/Dockerfile`.
 
 ---
 
@@ -168,11 +168,13 @@ TTV-Sistem/
 │   ├── app/                 # API FastAPI (routers, models, services)
 │   ├── tests/               # Pytest
 │   ├── requirements.txt
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── Dockerfile.dev
 ├── frontend/
 │   ├── src/
 │   ├── package.json
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── Dockerfile.dev
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
 └── README.md

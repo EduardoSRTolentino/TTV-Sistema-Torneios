@@ -49,6 +49,11 @@ export function Layout() {
                 Usuários
               </NavLink>
             )}
+            {user?.role === "admin" && (
+              <NavLink to="/admin/configuracoes" className={navClass}>
+                Configurações
+              </NavLink>
+            )}
             {(user?.role === "organizer" || user?.role === "admin") && (
               <NavLink to="/torneios/novo" className={navClass}>
                 Novo torneio
