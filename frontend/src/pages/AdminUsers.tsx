@@ -156,26 +156,26 @@ export function AdminUsers() {
         {loading ? (
           <p>Carregando…</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="table-wrap">
+            <table className="data-table data-table--wide">
               <thead>
-                <tr style={{ textAlign: "left" }}>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>ID</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>Nome</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>E-mail</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>Ranking (ELO)</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>Cargo atual</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>Criado em</th>
-                  <th style={{ padding: "0.5rem 0.25rem" }}>Alterar cargo</th>
+                <tr>
+                  <th>ID</th>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Ranking (ELO)</th>
+                  <th>Cargo atual</th>
+                  <th>Criado em</th>
+                  <th>Alterar cargo</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((u) => (
-                  <tr key={u.id} style={{ borderTop: "1px solid var(--border)" }}>
-                    <td style={{ padding: "0.5rem 0.25rem", color: "var(--muted)" }}>#{u.id}</td>
-                    <td style={{ padding: "0.5rem 0.25rem" }}>{u.full_name}</td>
-                    <td style={{ padding: "0.5rem 0.25rem", color: "var(--muted)" }}>{u.email}</td>
-                    <td style={{ padding: "0.5rem 0.25rem", minWidth: "11rem" }}>
+                  <tr key={u.id}>
+                    <td style={{ color: "var(--muted)" }}>#{u.id}</td>
+                    <td>{u.full_name}</td>
+                    <td style={{ color: "var(--muted)" }}>{u.email}</td>
+                    <td style={{ minWidth: "11rem" }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
                         <input
                           type="number"
@@ -202,11 +202,11 @@ export function AdminUsers() {
                         </button>
                       </div>
                     </td>
-                    <td style={{ padding: "0.5rem 0.25rem" }}>
+                    <td>
                       <span className="badge">{roleLabel(u.role)}</span>
                     </td>
-                    <td style={{ padding: "0.5rem 0.25rem", color: "var(--muted)" }}>{formatDate(u.created_at)}</td>
-                    <td style={{ padding: "0.5rem 0.25rem" }}>
+                    <td style={{ color: "var(--muted)" }}>{formatDate(u.created_at)}</td>
+                    <td>
                       {currentUser && u.id === currentUser.id ? (
                         <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
                           Não é possível alterar seu próprio cargo.

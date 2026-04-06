@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
-from app.database import Base, engine, ensure_tournament_extra_columns
+from app.database import Base, engine, ensure_registration_extra_columns, ensure_tournament_extra_columns
 from app.routers import admin_audit, auth, oauth_google, payments, ranking, reports, system_settings, tournaments, users
 
 logging.basicConfig(level=logging.INFO)
@@ -66,4 +66,5 @@ app.include_router(admin_audit.router)
 def startup():
     Base.metadata.create_all(bind=engine)
     ensure_tournament_extra_columns()
+    ensure_registration_extra_columns()
     logger.info("Tabelas verificadas/criadas.")

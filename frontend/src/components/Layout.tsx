@@ -22,13 +22,17 @@ export function Layout() {
 
   return (
     <div>
-      <header className="site-header">
+      <header className={`site-header${menuOpen ? " menu-open" : ""}`}>
         <div className="container header-row">
           <Link to="/" className="header-brand">
             TTV-TORNEIOS
           </Link>
           <div className="header-spacer" aria-hidden />
-          <nav className={`site-nav${menuOpen ? " is-open" : ""}`} aria-label="Navegação principal">
+          <nav
+            id="navegacao-principal"
+            className={`site-nav${menuOpen ? " is-open" : ""}`}
+            aria-label="Navegação principal"
+          >
             {user && (
               <NavLink to="/torneios" className={navClass} end>
                 Torneios
@@ -102,12 +106,17 @@ export function Layout() {
           </div>
           <button
             type="button"
-            className="menu-toggle"
+            className={`menu-toggle${menuOpen ? " is-active" : ""}`}
             aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
             aria-expanded={menuOpen}
+            aria-controls="navegacao-principal"
             onClick={() => setMenuOpen((o) => !o)}
           >
-            <span className="menu-toggle-icon" aria-hidden />
+            <span className="menu-toggle-inner" aria-hidden>
+              <span className="menu-toggle-bar" />
+              <span className="menu-toggle-bar" />
+              <span className="menu-toggle-bar" />
+            </span>
           </button>
         </div>
         <button
@@ -118,7 +127,7 @@ export function Layout() {
           onClick={() => setMenuOpen(false)}
         />
       </header>
-      <main className="container site-main">
+      <main id="conteudo-principal" className="container site-main">
         <Outlet />
       </main>
       <footer className="site-footer">

@@ -17,7 +17,14 @@ from app.schemas.match import BracketMatchOut, SetWinnerBody
 from app.schemas.registration import RegistrationCreate, RegistrationOut
 from app.schemas.tournament import TournamentCreate, TournamentOut, TournamentUpdate
 from app.services.bracket import generate_knockout_bracket
+from app.services.bracket_display import enrich_bracket_matches
 from app.services.match_flow import set_match_winner
+from app.services.tournament_lifecycle import (
+    apply_auto_close_single,
+    apply_auto_close_to_tournaments,
+    apply_manual_close_registrations,
+    start_tournament as start_tournament_flow,
+)
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
@@ -39,6 +46,7 @@ def list_tournaments(
     _: User = Depends(get_current_user),
 ):
     rows = db.query(Tournament).order_by(Tournament.created_at.desc()).all()
+    apply_auto_close_to_tournaments(db, rows)
     return [_tournament_out(db, t) for t in rows]
 
 
@@ -51,6 +59,7 @@ def get_tournament(
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Torneio não encontrado")
+    apply_auto_close_single(db, t)
     return _tournament_out(db, t)
 
 
@@ -70,6 +79,7 @@ def create_tournament(
         registration_fee=body.registration_fee,
         prize=body.prize,
         registration_deadline=body.registration_deadline,
+        match_best_of_sets=body.match_best_of_sets,
         status=TournamentStatus.draft,
     )
     db.add(t)
@@ -132,19 +142,53 @@ def open_registration(tournament_id: int, db: Session = Depends(get_db), user: U
     t.status = TournamentStatus.registration_open
     db.commit()
     db.refresh(t)
+    apply_auto_close_single(db, t)
     return _tournament_out(db, t)
 
 
-@router.post("/{tournament_id}/fechar-inscricoes", response_model=TournamentOut)
-def close_registration(tournament_id: int, db: Session = Depends(get_db), user: User = _org):
+def _require_tournament_manager(tournament_id: int, db: Session, user: User) -> Tournament:
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Torneio não encontrado")
     if user.role != UserRole.admin and t.organizer_id != user.id:
         raise HTTPException(403, "Apenas o organizador ou admin")
-    t.status = TournamentStatus.registration_closed
+    return t
+
+
+@router.post("/{tournament_id}/fechar-inscricoes", response_model=TournamentOut)
+def close_registration(tournament_id: int, db: Session = Depends(get_db), user: User = _org):
+    t = _require_tournament_manager(tournament_id, db, user)
+    apply_auto_close_single(db, t)
+    try:
+        apply_manual_close_registrations(t)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     db.commit()
     db.refresh(t)
+    return _tournament_out(db, t)
+
+
+@router.patch("/{tournament_id}/close-registrations", response_model=TournamentOut)
+def patch_close_registrations(tournament_id: int, db: Session = Depends(get_db), user: User = _org):
+    """Encerra inscrições manualmente (idempotente se já encerradas)."""
+    return close_registration(tournament_id, db, user)
+
+
+@router.patch("/{tournament_id}/start", response_model=TournamentOut)
+def patch_start_tournament(tournament_id: int, db: Session = Depends(get_db), user: User = _org):
+    """
+    Inicia o torneio: fecha inscrições se ainda estiverem abertas, gera chaveamento (se necessário)
+    e define status em andamento.
+    """
+    t = _require_tournament_manager(tournament_id, db, user)
+    apply_auto_close_single(db, t)
+    try:
+        start_tournament_flow(db, t)
+        db.commit()
+        db.refresh(t)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
     return _tournament_out(db, t)
 
 
@@ -158,6 +202,7 @@ def register_player(
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Torneio não encontrado")
+    apply_auto_close_single(db, t)
     if t.status != TournamentStatus.registration_open:
         raise HTTPException(400, "Inscrições não estão abertas")
     now = datetime.now(timezone.utc)
@@ -213,6 +258,7 @@ def list_registrations(
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Torneio não encontrado")
+    apply_auto_close_single(db, t)
 
     U1 = aliased(User)
     U2 = aliased(User)
@@ -243,6 +289,7 @@ def list_registrations(
                 partner_full_name=(partner.full_name if partner else None),
                 partner_rating=(float(partner_elo.rating) if partner_elo else (1500.0 if partner else None)),
                 created_at=reg.created_at,
+                bracket_seed_rating=reg.bracket_seed_rating,
             )
         )
     return out
@@ -255,12 +302,20 @@ def generate_bracket(tournament_id: int, db: Session = Depends(get_db), user: Us
         raise HTTPException(404, "Torneio não encontrado")
     if user.role != UserRole.admin and t.organizer_id != user.id:
         raise HTTPException(403, "Apenas o organizador ou admin")
-    if t.status not in (TournamentStatus.registration_closed, TournamentStatus.registration_open):
-        raise HTTPException(400, "Feche as inscrições antes de gerar o chaveamento (recomendado).")
+    apply_auto_close_single(db, t)
+    if t.status != TournamentStatus.registration_closed:
+        raise HTTPException(400, "Encerre as inscrições antes de gerar o chaveamento.")
     try:
-        matches = generate_knockout_bracket(db, t)
+        generate_knockout_bracket(db, t)
         db.commit()
-        return matches
+        db.refresh(t)
+        rows = (
+            db.query(BracketMatch)
+            .filter(BracketMatch.tournament_id == tournament_id)
+            .order_by(BracketMatch.round_number, BracketMatch.position_in_round)
+            .all()
+        )
+        return enrich_bracket_matches(db, t, rows)
     except ValueError as e:
         db.rollback()
         raise HTTPException(400, str(e))
@@ -272,14 +327,17 @@ def get_bracket(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    if not db.query(Tournament).filter(Tournament.id == tournament_id).first():
+    t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not t:
         raise HTTPException(404, "Torneio não encontrado")
-    return (
+    apply_auto_close_single(db, t)
+    rows = (
         db.query(BracketMatch)
         .filter(BracketMatch.tournament_id == tournament_id)
         .order_by(BracketMatch.round_number, BracketMatch.position_in_round)
         .all()
     )
+    return enrich_bracket_matches(db, t, rows)
 
 
 @router.post("/partidas/{match_id}/vencedor", response_model=BracketMatchOut)
@@ -301,7 +359,7 @@ def declare_winner(
         set_match_winner(db, m, body.winner_registration_id)
         db.commit()
         db.refresh(m)
-        return m
+        return enrich_bracket_matches(db, t, [m])[0]
     except ValueError as e:
         db.rollback()
         raise HTTPException(400, str(e))

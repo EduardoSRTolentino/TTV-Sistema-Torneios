@@ -30,6 +30,20 @@ def ensure_tournament_extra_columns() -> None:
             )
         if "prize" not in existing:
             conn.execute(text("ALTER TABLE tournaments ADD COLUMN prize TEXT NULL"))
+        if "match_best_of_sets" not in existing:
+            conn.execute(
+                text("ALTER TABLE tournaments ADD COLUMN match_best_of_sets INT NOT NULL DEFAULT 3")
+            )
+
+
+def ensure_registration_extra_columns() -> None:
+    insp = inspect(engine)
+    if not insp.has_table("tournament_registrations"):
+        return
+    existing = {c["name"].lower() for c in insp.get_columns("tournament_registrations")}
+    with engine.begin() as conn:
+        if "bracket_seed_rating" not in existing:
+            conn.execute(text("ALTER TABLE tournament_registrations ADD COLUMN bracket_seed_rating DOUBLE NULL"))
 
 
 def get_db():

@@ -19,5 +19,6 @@ class RegistrationOut(BaseModel):
     partner_full_name: Optional[str] = None
     partner_rating: Optional[float] = None
     created_at: datetime
+    bracket_seed_rating: Optional[float] = None
 
     model_config = {"from_attributes": True}

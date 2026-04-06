@@ -9,6 +9,7 @@ export function CreateTournament() {
   const [game_format, setGameFormat] = useState<"singles" | "doubles">("singles");
   const [max_participants, setMaxParticipants] = useState(32);
   const [deadline, setDeadline] = useState("");
+  const [matchBestOf, setMatchBestOf] = useState(3);
   const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
@@ -22,6 +23,7 @@ export function CreateTournament() {
         bracket_format: "knockout",
         max_participants,
         registration_deadline: deadline ? new Date(deadline).toISOString() : null,
+        match_best_of_sets: matchBestOf,
       });
       await api.openRegistration(t.id);
       nav(`/torneios/${t.id}`);
@@ -58,6 +60,19 @@ export function CreateTournament() {
             value={max_participants}
             onChange={(e) => setMaxParticipants(Number(e.target.value))}
           />
+        </div>
+        <div className="field">
+          <label>Melhor de (sets por partida)</label>
+          <select
+            className="select"
+            value={matchBestOf}
+            onChange={(e) => setMatchBestOf(Number(e.target.value))}
+          >
+            <option value={1}>1 set</option>
+            <option value={3}>3 sets</option>
+            <option value={5}>5 sets</option>
+            <option value={7}>7 sets</option>
+          </select>
         </div>
         <div className="field">
           <label>Prazo de inscrição (opcional)</label>

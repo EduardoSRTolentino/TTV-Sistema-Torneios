@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -17,6 +17,8 @@ class TournamentRegistration(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     partner_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Rating usado no seeding, congelado na geração do chaveamento (média em duplas).
+    bracket_seed_rating: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     tournament = relationship("Tournament", back_populates="registrations")
     user = relationship("User", foreign_keys=[user_id], back_populates="registrations")

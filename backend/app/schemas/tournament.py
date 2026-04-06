@@ -15,6 +15,14 @@ class TournamentCreate(BaseModel):
     registration_fee: float = Field(default=0.0, ge=0)
     prize: Optional[str] = None
     registration_deadline: Optional[datetime] = None
+    match_best_of_sets: int = Field(default=3, ge=1, le=9)
+
+    @field_validator("match_best_of_sets")
+    @classmethod
+    def odd_best_of(cls, v: int) -> int:
+        if v % 2 == 0:
+            raise ValueError("Número de sets deve ser ímpar (ex.: 1, 3, 5).")
+        return v
 
 
 class TournamentUpdate(BaseModel):
@@ -25,6 +33,14 @@ class TournamentUpdate(BaseModel):
     prize: Optional[str] = None
     registration_deadline: Optional[datetime] = None
     status: Optional[TournamentStatus] = None
+    match_best_of_sets: Optional[int] = Field(default=None, ge=1, le=9)
+
+    @field_validator("match_best_of_sets")
+    @classmethod
+    def odd_best_of_upd(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v % 2 == 0:
+            raise ValueError("Número de sets deve ser ímpar (ex.: 1, 3, 5).")
+        return v
 
     @field_validator("title")
     @classmethod
@@ -56,6 +72,7 @@ class TournamentOut(BaseModel):
     registration_fee: float
     prize: Optional[str]
     registration_deadline: Optional[datetime]
+    match_best_of_sets: int = 3
     status: TournamentStatus
     created_at: datetime
     registrations_count: int = 0

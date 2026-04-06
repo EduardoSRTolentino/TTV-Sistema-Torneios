@@ -44,6 +44,7 @@ class Tournament(Base):
     registration_fee: Mapped[float] = mapped_column(Float, default=0.0)
     prize: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     registration_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    match_best_of_sets: Mapped[int] = mapped_column(Integer, default=3)
     status: Mapped[TournamentStatus] = mapped_column(SAEnum(TournamentStatus), default=TournamentStatus.draft)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

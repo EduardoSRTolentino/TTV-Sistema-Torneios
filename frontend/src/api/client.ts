@@ -54,6 +54,7 @@ export async function createTournament(payload: {
   registration_fee?: number;
   prize?: string | null;
   registration_deadline?: string | null;
+  match_best_of_sets?: number;
 }) {
   const { data } = await api.post<Tournament>("/tournaments", payload);
   return data;
@@ -67,6 +68,7 @@ export async function updateTournament(
     registration_fee: number;
     prize?: string | null;
     registration_deadline?: string | null;
+    match_best_of_sets?: number;
   },
 ) {
   const { data } = await api.patch<Tournament>(`/tournaments/${id}`, payload);
@@ -80,6 +82,17 @@ export async function openRegistration(id: number) {
 
 export async function closeRegistration(id: number) {
   const { data } = await api.post<Tournament>(`/tournaments/${id}/fechar-inscricoes`);
+  return data;
+}
+
+/** Encerra inscrições (equivalente ao POST legado, preferido para novas telas). */
+export async function patchCloseRegistrations(id: number) {
+  const { data } = await api.patch<Tournament>(`/tournaments/${id}/close-registrations`);
+  return data;
+}
+
+export async function startTournament(id: number) {
+  const { data } = await api.patch<Tournament>(`/tournaments/${id}/start`);
   return data;
 }
 

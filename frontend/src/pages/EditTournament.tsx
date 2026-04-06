@@ -36,6 +36,7 @@ export function EditTournament() {
   const [prize, setPrize] = useState("");
   const [registrationFee, setRegistrationFee] = useState(0);
   const [deadline, setDeadline] = useState("");
+  const [matchBestOf, setMatchBestOf] = useState(3);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -64,6 +65,7 @@ export function EditTournament() {
         setPrize(tournament.prize ?? "");
         setRegistrationFee(tournament.registration_fee ?? 0);
         setDeadline(toDatetimeLocalValue(tournament.registration_deadline));
+        setMatchBestOf(tournament.match_best_of_sets ?? 3);
       })
       .catch(() => setLoadErr("Não foi possível carregar o torneio."));
   }, [id, tid, user, authLoading]);
@@ -95,6 +97,7 @@ export function EditTournament() {
         prize: prize.trim() || null,
         registration_fee: registrationFee,
         registration_deadline: deadline ? new Date(deadline).toISOString() : null,
+        match_best_of_sets: matchBestOf,
       });
       nav(`/torneios/${t.id}`);
     } catch (e) {
@@ -163,6 +166,15 @@ export function EditTournament() {
             value={Number.isFinite(registrationFee) ? registrationFee : 0}
             onChange={(e) => setRegistrationFee(parseFloat(e.target.value) || 0)}
           />
+        </div>
+        <div className="field">
+          <label>Melhor de (sets por partida)</label>
+          <select className="select" value={matchBestOf} onChange={(e) => setMatchBestOf(Number(e.target.value))}>
+            <option value={1}>1 set</option>
+            <option value={3}>3 sets</option>
+            <option value={5}>5 sets</option>
+            <option value={7}>7 sets</option>
+          </select>
         </div>
         <div className="field">
           <label>Prazo de inscrição</label>

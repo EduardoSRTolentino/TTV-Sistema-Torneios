@@ -12,6 +12,10 @@ class BracketMatchOut(BaseModel):
     reg2_id: Optional[int]
     winner_reg_id: Optional[int]
     next_match_id: Optional[int]
+    round_label: str = ""
+    reg1_display: str = ""
+    reg2_display: str = ""
+    winner_display: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

@@ -27,6 +27,7 @@ export interface Tournament {
   registration_fee: number;
   prize: string | null;
   registration_deadline: string | null;
+  match_best_of_sets: number;
   status: TournamentStatus;
   created_at: string;
   registrations_count: number;
@@ -42,6 +43,7 @@ export interface Registration {
   partner_full_name?: string | null;
   partner_rating?: number | null;
   created_at: string;
+  bracket_seed_rating?: number | null;
 }
 
 export interface BracketMatch {
@@ -53,4 +55,8 @@ export interface BracketMatch {
   reg2_id: number | null;
   winner_reg_id: number | null;
   next_match_id: number | null;
+  round_label?: string;
+  reg1_display?: string;
+  reg2_display?: string;
+  winner_display?: string | null;
 }
