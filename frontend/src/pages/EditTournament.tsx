@@ -37,6 +37,9 @@ export function EditTournament() {
   const [registrationFee, setRegistrationFee] = useState(0);
   const [deadline, setDeadline] = useState("");
   const [matchBestOf, setMatchBestOf] = useState(3);
+  const [matchPointsPerSet, setMatchPointsPerSet] = useState(11);
+  const [disputeThird, setDisputeThird] = useState(false);
+  const [premioJson, setPremioJson] = useState("");
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -66,6 +69,13 @@ export function EditTournament() {
         setRegistrationFee(tournament.registration_fee ?? 0);
         setDeadline(toDatetimeLocalValue(tournament.registration_deadline));
         setMatchBestOf(tournament.match_best_of_sets ?? 3);
+        setMatchPointsPerSet(tournament.match_points_per_set ?? 11);
+        setDisputeThird(Boolean(tournament.dispute_third_place));
+        setPremioJson(
+          tournament.ranking_premiacao && Object.keys(tournament.ranking_premiacao).length
+            ? JSON.stringify(tournament.ranking_premiacao, null, 2)
+            : "",
+        );
       })
       .catch(() => setLoadErr("Não foi possível carregar o torneio."));
   }, [id, tid, user, authLoading]);
@@ -89,6 +99,30 @@ export function EditTournament() {
       setErr("O valor da inscrição deve ser zero ou positivo.");
       return;
     }
+    let ranking_premiacao: Record<string, number> | null = null;
+    if (premioJson.trim()) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(premioJson) as unknown;
+      } catch {
+        setErr("Premiação do ranking: JSON inválido.");
+        return;
+      }
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        setErr("Premiação do ranking: JSON deve ser um objeto.");
+        return;
+      }
+      ranking_premiacao = {};
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        const n = Number(v);
+        if (!Number.isFinite(n)) {
+          setErr(`Premiação: valor inválido para a chave "${k}".`);
+          return;
+        }
+        ranking_premiacao[k] = n;
+      }
+    }
+
     setSaving(true);
     try {
       await api.updateTournament(t.id, {
@@ -98,6 +132,9 @@ export function EditTournament() {
         registration_fee: registrationFee,
         registration_deadline: deadline ? new Date(deadline).toISOString() : null,
         match_best_of_sets: matchBestOf,
+        match_points_per_set: matchPointsPerSet,
+        dispute_third_place: disputeThird,
+        ranking_premiacao,
       });
       nav(`/torneios/${t.id}`);
     } catch (e) {
@@ -175,6 +212,29 @@ export function EditTournament() {
             <option value={5}>5 sets</option>
             <option value={7}>7 sets</option>
           </select>
+        </div>
+        <div className="field">
+          <label>Pontos por set</label>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={matchPointsPerSet}
+            onChange={(e) => setMatchPointsPerSet(Number(e.target.value) || 11)}
+          />
+        </div>
+        <div className="field">
+          <label>
+            <input type="checkbox" checked={disputeThird} onChange={(e) => setDisputeThird(e.target.checked)} /> Disputa
+            de 3º lugar
+          </label>
+        </div>
+        <div className="field">
+          <label>Pontos de ranking por colocação (JSON, opcional)</label>
+          <textarea rows={4} value={premioJson} onChange={(e) => setPremioJson(e.target.value)} placeholder='{"1":100}' />
+          <small style={{ color: "var(--muted)", display: "block", marginTop: "0.25rem" }}>
+            Deixe vazio para não usar premiação por ranking neste torneio.
+          </small>
         </div>
         <div className="field">
           <label>Prazo de inscrição</label>

@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Text, DateTime, ForeignKey, Integer, Float, Enum as SAEnum
+from sqlalchemy import String, Text, DateTime, ForeignKey, Integer, Float, JSON, Boolean, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -45,6 +45,9 @@ class Tournament(Base):
     prize: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     registration_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     match_best_of_sets: Mapped[int] = mapped_column(Integer, default=3)
+    match_points_per_set: Mapped[int] = mapped_column(Integer, default=11)
+    dispute_third_place: Mapped[bool] = mapped_column(Boolean, default=False)
+    ranking_premiacao: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     status: Mapped[TournamentStatus] = mapped_column(SAEnum(TournamentStatus), default=TournamentStatus.draft)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

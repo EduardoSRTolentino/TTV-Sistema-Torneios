@@ -17,6 +17,8 @@ class RankingRow(BaseModel):
     user_id: int
     full_name: str
     rating: float
+    ranking_points: float = 0.0
+    combined_score: float = 0.0
     games_played: int
 
     model_config = {"from_attributes": True}
@@ -28,14 +30,25 @@ def global_ranking(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    combined = EloRating.rating + EloRating.ranking_points
     rows = (
         db.query(EloRating, User)
         .join(User, User.id == EloRating.user_id)
-        .order_by(desc(EloRating.rating))
+        .order_by(desc(combined), desc(EloRating.rating))
         .limit(min(limit, 500))
         .all()
     )
     out: List[RankingRow] = []
     for elo, user in rows:
-        out.append(RankingRow(user_id=user.id, full_name=user.full_name, rating=elo.rating, games_played=elo.games_played))
+        rp = float(elo.ranking_points or 0)
+        out.append(
+            RankingRow(
+                user_id=user.id,
+                full_name=user.full_name,
+                rating=float(elo.rating),
+                ranking_points=rp,
+                combined_score=float(elo.rating) + rp,
+                games_played=elo.games_played,
+            )
+        )
     return out

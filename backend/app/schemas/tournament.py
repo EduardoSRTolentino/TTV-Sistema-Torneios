@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,6 +16,9 @@ class TournamentCreate(BaseModel):
     prize: Optional[str] = None
     registration_deadline: Optional[datetime] = None
     match_best_of_sets: int = Field(default=3, ge=1, le=9)
+    match_points_per_set: int = Field(default=11, ge=1, le=50)
+    dispute_third_place: bool = False
+    ranking_premiacao: Optional[Dict[str, Any]] = None
 
     @field_validator("match_best_of_sets")
     @classmethod
@@ -34,6 +37,9 @@ class TournamentUpdate(BaseModel):
     registration_deadline: Optional[datetime] = None
     status: Optional[TournamentStatus] = None
     match_best_of_sets: Optional[int] = Field(default=None, ge=1, le=9)
+    match_points_per_set: Optional[int] = Field(default=None, ge=1, le=50)
+    dispute_third_place: Optional[bool] = None
+    ranking_premiacao: Optional[Dict[str, Any]] = None
 
     @field_validator("match_best_of_sets")
     @classmethod
@@ -73,6 +79,9 @@ class TournamentOut(BaseModel):
     prize: Optional[str]
     registration_deadline: Optional[datetime]
     match_best_of_sets: int = 3
+    match_points_per_set: int = 11
+    dispute_third_place: bool = False
+    ranking_premiacao: Optional[Dict[str, Any]] = None
     status: TournamentStatus
     created_at: datetime
     registrations_count: int = 0

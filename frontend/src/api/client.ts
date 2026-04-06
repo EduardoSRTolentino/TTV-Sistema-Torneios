@@ -55,6 +55,9 @@ export async function createTournament(payload: {
   prize?: string | null;
   registration_deadline?: string | null;
   match_best_of_sets?: number;
+  match_points_per_set?: number;
+  dispute_third_place?: boolean;
+  ranking_premiacao?: Record<string, number> | null;
 }) {
   const { data } = await api.post<Tournament>("/tournaments", payload);
   return data;
@@ -69,6 +72,9 @@ export async function updateTournament(
     prize?: string | null;
     registration_deadline?: string | null;
     match_best_of_sets?: number;
+    match_points_per_set?: number;
+    dispute_third_place?: boolean;
+    ranking_premiacao?: Record<string, number> | null;
   },
 ) {
   const { data } = await api.patch<Tournament>(`/tournaments/${id}`, payload);
@@ -119,9 +125,16 @@ export async function getBracket(id: number) {
 }
 
 export async function listRanking() {
-  const { data } = await api.get<Array<{ user_id: number; full_name: string; rating: number; games_played: number }>>(
-    "/ranking"
-  );
+  const { data } = await api.get<
+    Array<{
+      user_id: number;
+      full_name: string;
+      rating: number;
+      ranking_points?: number;
+      combined_score?: number;
+      games_played: number;
+    }>
+  >("/ranking");
   return data;
 }
 
@@ -129,6 +142,14 @@ export async function setWinner(matchId: number, winner_registration_id: number)
   const { data } = await api.post<BracketMatch>(`/tournaments/partidas/${matchId}/vencedor`, {
     winner_registration_id,
   });
+  return data;
+}
+
+export async function submitMatchResult(
+  matchId: number,
+  sets: Array<{ set_number: number; reg1_score: number; reg2_score: number }>,
+) {
+  const { data } = await api.post<BracketMatch>(`/tournaments/partidas/${matchId}/resultado`, { sets });
   return data;
 }
 

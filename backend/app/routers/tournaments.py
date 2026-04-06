@@ -13,12 +13,13 @@ from app.models.registration import TournamentRegistration
 from app.models.tournament import GameFormat, Tournament, TournamentStatus
 from app.models.user import User, UserRole
 from app.models.match import BracketMatch
-from app.schemas.match import BracketMatchOut, SetWinnerBody
+from app.schemas.match import BracketMatchOut, MatchResultBody, SetWinnerBody
 from app.schemas.registration import RegistrationCreate, RegistrationOut
 from app.schemas.tournament import TournamentCreate, TournamentOut, TournamentUpdate
 from app.services.bracket import generate_knockout_bracket
 from app.services.bracket_display import enrich_bracket_matches
 from app.services.match_flow import set_match_winner
+from app.services.match_service import SetScoreRow, submit_match_set_scores
 from app.services.tournament_lifecycle import (
     apply_auto_close_single,
     apply_auto_close_to_tournaments,
@@ -80,6 +81,9 @@ def create_tournament(
         prize=body.prize,
         registration_deadline=body.registration_deadline,
         match_best_of_sets=body.match_best_of_sets,
+        match_points_per_set=body.match_points_per_set,
+        dispute_third_place=body.dispute_third_place,
+        ranking_premiacao=body.ranking_premiacao,
         status=TournamentStatus.draft,
     )
     db.add(t)
@@ -153,6 +157,14 @@ def _require_tournament_manager(tournament_id: int, db: Session, user: User) -> 
     if user.role != UserRole.admin and t.organizer_id != user.id:
         raise HTTPException(403, "Apenas o organizador ou admin")
     return t
+
+
+def _require_match_manager(match_id: int, db: Session, user: User) -> tuple[BracketMatch, Tournament]:
+    m = db.query(BracketMatch).filter(BracketMatch.id == match_id).first()
+    if not m:
+        raise HTTPException(404, "Partida não encontrada")
+    t = _require_tournament_manager(m.tournament_id, db, user)
+    return m, t
 
 
 @router.post("/{tournament_id}/fechar-inscricoes", response_model=TournamentOut)
@@ -312,7 +324,7 @@ def generate_bracket(tournament_id: int, db: Session = Depends(get_db), user: Us
         rows = (
             db.query(BracketMatch)
             .filter(BracketMatch.tournament_id == tournament_id)
-            .order_by(BracketMatch.round_number, BracketMatch.position_in_round)
+            .order_by(BracketMatch.round_number, BracketMatch.match_order, BracketMatch.position_in_round)
             .all()
         )
         return enrich_bracket_matches(db, t, rows)
@@ -334,7 +346,7 @@ def get_bracket(
     rows = (
         db.query(BracketMatch)
         .filter(BracketMatch.tournament_id == tournament_id)
-        .order_by(BracketMatch.round_number, BracketMatch.position_in_round)
+        .order_by(BracketMatch.round_number, BracketMatch.match_order, BracketMatch.position_in_round)
         .all()
     )
     return enrich_bracket_matches(db, t, rows)
@@ -347,16 +359,31 @@ def declare_winner(
     db: Session = Depends(get_db),
     user: User = _org,
 ):
-    m = db.query(BracketMatch).filter(BracketMatch.id == match_id).first()
-    if not m:
-        raise HTTPException(404, "Partida não encontrada")
-    t = db.query(Tournament).filter(Tournament.id == m.tournament_id).first()
-    if not t:
-        raise HTTPException(404, "Torneio não encontrado")
-    if user.role != UserRole.admin and t.organizer_id != user.id:
-        raise HTTPException(403, "Apenas o organizador ou admin")
+    m, t = _require_match_manager(match_id, db, user)
     try:
         set_match_winner(db, m, body.winner_registration_id)
+        db.commit()
+        db.refresh(m)
+        return enrich_bracket_matches(db, t, [m])[0]
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+
+
+@router.post("/partidas/{match_id}/resultado", response_model=BracketMatchOut)
+def submit_match_result(
+    match_id: int,
+    body: MatchResultBody,
+    db: Session = Depends(get_db),
+    user: User = _org,
+):
+    """Registra o placar por sets (validação de tênis de mesa) e propaga o vencedor."""
+    m, t = _require_match_manager(match_id, db, user)
+    rows = [
+        SetScoreRow(set_number=s.set_number, reg1_score=s.reg1_score, reg2_score=s.reg2_score) for s in body.sets
+    ]
+    try:
+        submit_match_set_scores(db, t, m, rows)
         db.commit()
         db.refresh(m)
         return enrich_bracket_matches(db, t, [m])[0]

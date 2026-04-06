@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import * as api from "@/api/client";
 import type { BracketMatch, Registration, Tournament } from "@/api/types";
 import { BracketTree } from "@/components/BracketTree";
+import { MatchSetResultForm } from "@/components/MatchSetResultForm";
 import { useAuth } from "@/context/AuthContext";
 
 function statusLabel(s: Tournament["status"]) {
@@ -41,6 +42,7 @@ export function TournamentDetail() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "close" | "start" | "bracket">(null);
   const [matchBusyId, setMatchBusyId] = useState<number | null>(null);
+  const [setFormMatch, setSetFormMatch] = useState<BracketMatch | null>(null);
 
   const canManage =
     user &&
@@ -155,7 +157,12 @@ export function TournamentDetail() {
       m.set(b.round_number, arr);
     });
     for (const arr of m.values()) {
-      arr.sort((a, b) => a.position_in_round - b.position_in_round);
+      arr.sort((a, b) => {
+        const oa = a.match_order ?? a.position_in_round + 1;
+        const ob = b.match_order ?? b.position_in_round + 1;
+        if (oa !== ob) return oa - ob;
+        return a.position_in_round - b.position_in_round;
+      });
     }
     return [...m.entries()].sort((a, b) => a[0] - b[0]);
   }, [bracket]);
@@ -175,12 +182,13 @@ export function TournamentDetail() {
           {t.game_format === "singles" ? "Individual" : "Duplas"} • {t.registrations_count}/{t.max_participants}{" "}
           inscritos
           {(t.registration_fee ?? 0) > 0 ? ` • Inscrição: R$ ${(t.registration_fee ?? 0).toFixed(2)}` : ""}
-          {` • Melhor de ${t.match_best_of_sets ?? 3} sets`}
+          {` • Melhor de ${t.match_best_of_sets ?? 3} sets (${t.match_points_per_set ?? 11} pts/set)`}
+          {t.dispute_third_place ? " • Disputa de 3º lugar" : ""}
         </span>
       </p>
       <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.25rem" }}>
-        Chaveamento por ranking: confrontos 1º vs último na 1ª fase; BYEs favorecem os melhores seeds. O ranking usado no
-        seeding é congelado ao gerar o chaveamento.
+        Chaveamento competitivo por ranking (1º e 2º só na final); ordem de partidas na rodada segue a sequência de
+        campanha; BYEs favorecem os melhores seeds. O ranking usado no seeding é congelado ao gerar o chaveamento.
       </p>
       {t.prize ? (
         <p style={{ marginTop: "0.5rem" }}>
@@ -265,6 +273,36 @@ export function TournamentDetail() {
             canDeclareResults={canDeclareResults}
             busyMatchId={matchBusyId}
             onDeclareWinner={onDeclareWinner}
+            onOpenSetForm={(m) => {
+              setErr(null);
+              setSetFormMatch(m);
+            }}
+          />
+        </div>
+      )}
+
+      {setFormMatch && t && (
+        <div style={{ marginTop: "1rem" }}>
+          <MatchSetResultForm
+            tournament={t}
+            match={setFormMatch}
+            busy={matchBusyId === setFormMatch.id}
+            onCancel={() => setSetFormMatch(null)}
+            onSubmit={async (sets) => {
+              setErr(null);
+              setMsg(null);
+              setMatchBusyId(setFormMatch.id);
+              try {
+                await api.submitMatchResult(setFormMatch.id, sets);
+                setSetFormMatch(null);
+                setMsg("Placar registrado.");
+                await load();
+              } catch (e) {
+                setErr(apiDetailMessage(e) ?? "Não foi possível salvar o placar.");
+              } finally {
+                setMatchBusyId(null);
+              }
+            }}
           />
         </div>
       )}

@@ -5,7 +5,8 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.match import BracketMatch
+from app.models.match import BracketMatch, BracketMatchStatus
+from app.models.tournament import Tournament, TournamentStatus
 
 
 def _match_is_bye_pending(m: BracketMatch) -> bool:
@@ -83,7 +84,7 @@ def settle_tournament_propagations(db: Session, tournament_id: int) -> None:
         matches = (
             db.query(BracketMatch)
             .filter(BracketMatch.tournament_id == tournament_id)
-            .order_by(BracketMatch.round_number, BracketMatch.position_in_round)
+            .order_by(BracketMatch.round_number, BracketMatch.match_order, BracketMatch.position_in_round)
             .all()
         )
         for m in matches:
@@ -98,13 +99,22 @@ def settle_tournament_propagations(db: Session, tournament_id: int) -> None:
 
 
 def set_match_winner(db: Session, match: BracketMatch, winner_reg_id: int) -> None:
+    t = db.query(Tournament).filter(Tournament.id == match.tournament_id).first()
+    if t is not None and t.status == TournamentStatus.completed:
+        raise ValueError("Torneio finalizado.")
+    if match.status == BracketMatchStatus.finished:
+        raise ValueError("Partida já finalizada.")
     if winner_reg_id not in (match.reg1_id, match.reg2_id):
         raise ValueError("O vencedor deve ser um dos jogadores desta partida.")
     match.winner_reg_id = winner_reg_id
+    match.status = BracketMatchStatus.finished
     db.flush()
     advance_winner_into_next_match(db, match)
     db.flush()
     settle_tournament_propagations(db, match.tournament_id)
+    from app.services.tournament_service import after_match_resolved
+
+    after_match_resolved(db, match.tournament_id)
 
 
 def propagate_initial_bye_winners(db: Session, first_round_matches: list[BracketMatch]) -> None:

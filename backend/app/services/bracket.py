@@ -1,4 +1,4 @@
-"""Geração de chaveamento mata-mata com seeding por ranking e BYEs para os melhores seeds."""
+"""Geração de chaveamento mata-mata com seeding competitivo (1º × último na ponta, BYEs para melhores seeds)."""
 from __future__ import annotations
 
 import math
@@ -8,7 +8,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.elo import EloRating
-from app.models.match import BracketMatch
+from app.models.match import BracketMatch, BracketMatchKind, BracketMatchStatus
 from app.models.registration import TournamentRegistration
 from app.models.tournament import GameFormat, Tournament, TournamentStatus
 from app.services.match_flow import propagate_initial_bye_winners
@@ -60,14 +60,111 @@ def _order_registrations_by_seed(db: Session, tournament: Tournament, regs: list
     regs.extend(ordered)
 
 
+def standard_bracket_seed_line(n: int) -> list[int]:
+    """
+    Linha do bracket (folhas) com seeds 1..n, n potência de 2.
+    Expansão padrão: garante 1º e 2º só na final, 1º e 3º só na semi, etc.
+    Ex.: n=8 → [1, 8, 4, 5, 2, 7, 3, 6] (pares consecutivos = confrontos).
+    """
+    if n < 1:
+        return []
+    if n == 1:
+        return [1]
+    r = 1
+    seeds = [1]
+    while len(seeds) < n:
+        nxt: list[int] = []
+        for s in seeds:
+            nxt.append(s)
+            nxt.append(2**r + 1 - s)
+        seeds = nxt
+        r += 1
+    return seeds
+
+
+def competitive_bracket_seed_line(n: int) -> list[int]:
+    """
+    Ordem das folhas alinhada ao padrão desejado (ex. 8 jogadores):
+    [1, 8, 4, 5, 3, 6, 2, 7] — mesmos confrontos que o padrão, metade direita reordenada em blocos de 4.
+    """
+    seeds = standard_bracket_seed_line(n)
+    if n <= 4:
+        return seeds
+    h = n // 2
+    left = seeds[:h]
+    right = seeds[h:]
+    new_right: list[int] = []
+    i = 0
+    while i < len(right):
+        if i + 4 <= len(right):
+            chunk = right[i : i + 4]
+            new_right.extend([chunk[2], chunk[3], chunk[0], chunk[1]])
+            i += 4
+        else:
+            new_right.extend(right[i:])
+            break
+    return left + new_right
+
+
+def first_round_schedule_permutation(num_matches: int) -> list[int]:
+    """
+    Permutação P: P[k] = índice da partida (0..num_matches-1) jogada na ordem k (0ª, 1ª, …).
+    Intercala metades recursivamente: ex. 4 partidas → [0, 2, 1, 3] em ordem de jogo.
+    """
+    if num_matches < 1:
+        return []
+    if num_matches == 1:
+        return [0]
+    if num_matches == 2:
+        return [0, 1]
+    half = num_matches // 2
+    left = first_round_schedule_permutation(half)
+    right = [half + x for x in first_round_schedule_permutation(half)]
+    out: list[int] = []
+    for i in range(half):
+        out.append(left[i])
+        out.append(right[i])
+    return out
+
+
+def first_round_match_order_by_position(num_matches: int) -> list[int]:
+    """Para cada position_in_round (0..n-1), valor match_order (1..n) na ordem de campanha."""
+    perm = first_round_schedule_permutation(num_matches)
+    inv = [0] * num_matches
+    for order, pos in enumerate(perm):
+        inv[pos] = order + 1
+    return inv
+
+
+def bracket_round_key(round_number: int, total_rounds: int) -> str:
+    """Chave estável da fase (ex.: quarterfinal, semifinal, final)."""
+    if total_rounds < 1:
+        return f"round_{round_number}"
+    d = total_rounds - round_number
+    if d == 0:
+        return "final"
+    if d == 1:
+        return "semifinal"
+    if d == 2:
+        return "quarterfinal"
+    if d == 3:
+        return "round_of_16"
+    if d == 4:
+        return "round_of_32"
+    if d == 5:
+        return "round_of_64"
+    return f"round_of_{2 ** (d + 1)}"
+
+
 def compute_first_round_slots(n: int, ordered_registration_ids: list[int]) -> list[Optional[int]]:
     """
     n participantes; IDs na ordem seed 1..n (melhor → pior).
-    Chave S = próxima potência de 2: confrontos 1 vs S, 2 vs S-1, …; seeds inexistentes viram BYE.
+    Folhas do bracket em ordem competitiva; seeds ausentes viram BYE no slot do oponente.
     """
     if len(ordered_registration_ids) != n:
         raise ValueError("Lista de inscrições não bate com n.")
     S = _next_power_of_2(n)
+    line = competitive_bracket_seed_line(S)
 
     def reg_id_for_seed(seed_num: int) -> Optional[int]:
         if 1 <= seed_num <= n:
@@ -75,15 +172,25 @@ def compute_first_round_slots(n: int, ordered_registration_ids: list[int]) -> li
         return None
 
     slots: list[Optional[int]] = []
-    for i in range(S // 2):
-        a = i + 1
-        b = S - i
-        slots.append(reg_id_for_seed(a))
-        slots.append(reg_id_for_seed(b))
+    for s in line:
+        slots.append(reg_id_for_seed(s))
+
+    seen: set[int] = set()
+    for x in slots:
+        if x is not None:
+            if x in seen:
+                raise ValueError("Inscrição duplicada no chaveamento.")
+            seen.add(x)
     return slots
 
 
 def generate_knockout_bracket(db: Session, tournament: Tournament) -> List[BracketMatch]:
+    existing = (
+        db.query(BracketMatch).filter(BracketMatch.tournament_id == tournament.id).count()
+    )
+    if int(existing or 0) > 0:
+        raise ValueError("Chaveamento já existe. Não é possível gerar novamente.")
+
     regs = (
         db.query(TournamentRegistration)
         .filter(TournamentRegistration.tournament_id == tournament.id)
@@ -94,14 +201,14 @@ def generate_knockout_bracket(db: Session, tournament: Tournament) -> List[Brack
 
     _order_registrations_by_seed(db, tournament, regs)
 
-    db.query(BracketMatch).filter(BracketMatch.tournament_id == tournament.id).delete()
-    db.flush()
-
     reg_ids = compute_first_round_slots(len(regs), [r.id for r in regs])
     size = len(reg_ids)
     num_rounds = int(math.log2(size))
+    r1_count = size // 2
+    r1_orders = first_round_match_order_by_position(r1_count)
 
     round_matches: dict[int, list[BracketMatch]] = {}
+    bracket_pos = 0
     for r in range(num_rounds, 0, -1):
         num_matches = 2 ** (num_rounds - r)
         round_matches[r] = []
@@ -110,12 +217,20 @@ def generate_knockout_bracket(db: Session, tournament: Tournament) -> List[Brack
             if r < num_rounds:
                 parent = round_matches[r + 1][pos // 2]
                 next_id = parent.id
+            rk = bracket_round_key(r, num_rounds)
+            mo = r1_orders[pos] if r == 1 else pos + 1
             m = BracketMatch(
                 tournament_id=tournament.id,
                 round_number=r,
                 position_in_round=pos,
                 next_match_id=next_id,
+                status=BracketMatchStatus.pending,
+                match_kind=BracketMatchKind.knockout,
+                match_order=mo,
+                bracket_round_key=rk,
+                bracket_position=bracket_pos,
             )
+            bracket_pos += 1
             db.add(m)
             db.flush()
             round_matches[r].append(m)
@@ -129,8 +244,10 @@ def generate_knockout_bracket(db: Session, tournament: Tournament) -> List[Brack
             continue
         if a is None:
             m.winner_reg_id = b
+            m.status = BracketMatchStatus.finished
         elif b is None:
             m.winner_reg_id = a
+            m.status = BracketMatchStatus.finished
 
     db.flush()
     propagate_initial_bye_winners(db, r1_matches)

@@ -1,7 +1,7 @@
 from app.models.user import User
 from app.models.tournament import Tournament, TournamentStatus, GameFormat, BracketFormat
 from app.models.registration import TournamentRegistration
-from app.models.match import BracketMatch
+from app.models.match import BracketMatch, BracketMatchKind, BracketMatchSet, BracketMatchStatus
 from app.models.oauth_account import OAuthAccount
 from app.models.payment import Payment, PaymentStatus
 from app.models.report import Report, ReportStatus
@@ -17,6 +17,9 @@ __all__ = [
     "BracketFormat",
     "TournamentRegistration",
     "BracketMatch",
+    "BracketMatchSet",
+    "BracketMatchStatus",
+    "BracketMatchKind",
     "OAuthAccount",
     "Payment",
     "PaymentStatus",
