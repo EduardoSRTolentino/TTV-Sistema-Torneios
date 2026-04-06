@@ -2,8 +2,9 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import { Link, useParams } from "react-router-dom";
 import * as api from "@/api/client";
-import type { BracketMatch, Registration, Tournament } from "@/api/types";
+import type { BracketMatch, GroupMatchRow, GroupsPhase, Registration, Tournament } from "@/api/types";
 import { BracketTree } from "@/components/BracketTree";
+import { GroupPhaseSection } from "@/components/GroupPhaseSection";
 import { MatchSetResultForm } from "@/components/MatchSetResultForm";
 import { useAuth } from "@/context/AuthContext";
 
@@ -37,12 +38,15 @@ export function TournamentDetail() {
   const [t, setT] = useState<Tournament | null>(null);
   const [regs, setRegs] = useState<Registration[]>([]);
   const [bracket, setBracket] = useState<BracketMatch[]>([]);
+  const [groupsPhase, setGroupsPhase] = useState<GroupsPhase | null>(null);
   const [partnerEmail, setPartnerEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState<null | "close" | "start" | "bracket">(null);
+  const [busy, setBusy] = useState<null | "close" | "start" | "bracket" | "groups">(null);
   const [matchBusyId, setMatchBusyId] = useState<number | null>(null);
+  const [groupMatchBusyId, setGroupMatchBusyId] = useState<number | null>(null);
   const [setFormMatch, setSetFormMatch] = useState<BracketMatch | null>(null);
+  const [setFormGroupMatch, setSetFormGroupMatch] = useState<GroupMatchRow | null>(null);
 
   const canManage =
     user &&
@@ -56,20 +60,47 @@ export function TournamentDetail() {
     t.status !== "in_progress" &&
     t.status !== "completed";
 
-  const canGenerateBracket = canManage && t && t.status === "registration_closed";
+  const allGroupMatchesDone =
+    t?.bracket_format === "group_knockout" && groupsPhase && groupsPhase.groups.length > 0
+      ? groupsPhase.groups.every((g) => g.matches.every((m) => m.status !== "pending"))
+      : false;
+
+  const canGenerateGroups =
+    Boolean(
+      canManage &&
+        t?.bracket_format === "group_knockout" &&
+        (t.status === "registration_closed" || t.status === "in_progress") &&
+        (!groupsPhase || groupsPhase.groups.length === 0),
+    );
+
+  const canGenerateBracket = Boolean(
+    canManage &&
+      t &&
+      !bracket.length &&
+      ((t.bracket_format === "knockout" && t.status === "registration_closed") ||
+        (t.bracket_format === "group_knockout" &&
+          t.status === "in_progress" &&
+          allGroupMatchesDone &&
+          groupsPhase &&
+          groupsPhase.groups.length > 0)),
+  );
 
   const canDeclareResults = Boolean(canManage && t && t.status === "in_progress");
 
   async function load() {
     if (!id || Number.isNaN(tid)) return;
-    const [tournament, registrations, b] = await Promise.all([
-      api.getTournament(tid),
+    const tournament = await api.getTournament(tid);
+    const [registrations, b, gp] = await Promise.all([
       api.listRegistrations(tid),
       api.getBracket(tid).catch(() => []),
+      tournament.bracket_format === "group_knockout"
+        ? api.getGroupsPhase(tid).catch(() => null)
+        : Promise.resolve(null),
     ]);
     setT(tournament);
     setRegs(registrations);
     setBracket(b);
+    setGroupsPhase(gp);
   }
 
   useEffect(() => {
@@ -110,7 +141,9 @@ export function TournamentDetail() {
     setBusy("start");
     try {
       await api.startTournament(tid);
-      setMsg("Torneio iniciado (inscrições encerradas e chaveamento gerado, se necessário).");
+      setMsg(
+        "Torneio iniciado. Em formato grupos + mata-mata, os grupos são gerados ao iniciar (se ainda não existirem).",
+      );
       await load();
     } catch (e) {
       setErr(apiDetailMessage(e) ?? "Não foi possível iniciar o torneio.");
@@ -125,10 +158,28 @@ export function TournamentDetail() {
     setBusy("bracket");
     try {
       await api.generateBracket(tid);
-      setMsg("Chaveamento gerado.");
+      setMsg("Mata-mata gerado.");
       await load();
     } catch (e) {
-      setErr(apiDetailMessage(e) ?? "Não foi possível gerar o chaveamento (mínimo 2 inscrições e inscrições encerradas).");
+      setErr(
+        apiDetailMessage(e) ??
+          "Não foi possível gerar o mata-mata. Verifique regras do formato (grupos finalizados, inscrições, etc.).",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onGenerateGroups() {
+    setErr(null);
+    setMsg(null);
+    setBusy("groups");
+    try {
+      await api.generateGroups(tid);
+      setMsg("Grupos gerados.");
+      await load();
+    } catch (e) {
+      setErr(apiDetailMessage(e) ?? "Não foi possível gerar os grupos.");
     } finally {
       setBusy(null);
     }
@@ -179,6 +230,7 @@ export function TournamentDetail() {
       <p className="meta-inline" style={{ color: "var(--muted)" }}>
         <span className="badge">{statusLabel(t.status)}</span>
         <span>
+          {t.bracket_format === "group_knockout" ? "Grupos + mata-mata" : "Mata-mata"} •{" "}
           {t.game_format === "singles" ? "Individual" : "Duplas"} • {t.registrations_count}/{t.max_participants}{" "}
           inscritos
           {(t.registration_fee ?? 0) > 0 ? ` • Inscrição: R$ ${(t.registration_fee ?? 0).toFixed(2)}` : ""}
@@ -187,8 +239,17 @@ export function TournamentDetail() {
         </span>
       </p>
       <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.25rem" }}>
-        Chaveamento competitivo por ranking (1º e 2º só na final); ordem de partidas na rodada segue a sequência de
-        campanha; BYEs favorecem os melhores seeds. O ranking usado no seeding é congelado ao gerar o chaveamento.
+        {t.bracket_format === "group_knockout" ? (
+          <>
+            Fase de grupos com seeding em serpente (ranking); classificação com critérios configuráveis; depois mata-mata
+            com classificados (seeding por posição no grupo e ranking inicial).
+          </>
+        ) : (
+          <>
+            Chaveamento competitivo por ranking (1º e 2º só na final); ordem de partidas na rodada segue a sequência de
+            campanha; BYEs favorecem os melhores seeds. O ranking usado no seeding é congelado ao gerar o chaveamento.
+          </>
+        )}
       </p>
       {t.prize ? (
         <p style={{ marginTop: "0.5rem" }}>
@@ -216,7 +277,8 @@ export function TournamentDetail() {
           <h3 style={{ marginTop: 0 }}>Organização</h3>
           <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: 0 }}>
             O prazo de inscrição, quando definido, encerra as inscrições automaticamente ao ser consultado o torneio.
-            &quot;Iniciar torneio&quot; encerra inscrições se ainda estiverem abertas e gera o chaveamento.
+            &quot;Iniciar torneio&quot; encerra inscrições se necessário e, em grupos + mata-mata, gera os grupos; em
+            mata-mata direto, gera o chaveamento.
           </p>
           <div className="split-actions">
             <Link className="btn btn-ghost" to={`/torneios/${t.id}/editar`}>
@@ -232,9 +294,14 @@ export function TournamentDetail() {
                 {busy === "start" ? "Iniciando…" : "Iniciar torneio"}
               </button>
             )}
+            {canGenerateGroups && (
+              <button className="btn btn-ghost" type="button" disabled={busy !== null} onClick={onGenerateGroups}>
+                {busy === "groups" ? "Gerando…" : "Gerar grupos (manual)"}
+              </button>
+            )}
             {canGenerateBracket && (
               <button className="btn btn-ghost" type="button" disabled={busy !== null} onClick={onGenerate}>
-                {busy === "bracket" ? "Gerando…" : "Gerar chaveamento (mata-mata)"}
+                {busy === "bracket" ? "Gerando…" : "Gerar mata-mata"}
               </button>
             )}
           </div>
@@ -264,6 +331,39 @@ export function TournamentDetail() {
           {!regs.length && <li style={{ color: "var(--muted)" }}>Nenhuma inscrição ainda.</li>}
         </ul>
       </div>
+
+      {t.bracket_format === "group_knockout" && (
+        <div style={{ marginTop: "1rem" }}>
+          <h3>Fase de grupos</h3>
+          <GroupPhaseSection
+            tournament={t}
+            groups={groupsPhase?.groups ?? []}
+            canManage={Boolean(canManage)}
+            busyMatchId={groupMatchBusyId}
+            openGroupMatch={setFormGroupMatch}
+            onOpenSetForm={(m) => {
+              setErr(null);
+              setSetFormGroupMatch(m);
+            }}
+            onCloseSetForm={() => setSetFormGroupMatch(null)}
+            onSubmitSets={async (match, sets) => {
+              setErr(null);
+              setMsg(null);
+              setGroupMatchBusyId(match.id);
+              try {
+                await api.submitGroupMatchResult(tid, match.id, sets);
+                setSetFormGroupMatch(null);
+                setMsg("Placar registrado.");
+                await load();
+              } catch (e) {
+                setErr(apiDetailMessage(e) ?? "Não foi possível salvar o placar.");
+              } finally {
+                setGroupMatchBusyId(null);
+              }
+            }}
+          />
+        </div>
+      )}
 
       {!!rounds.length && (
         <div style={{ marginTop: "1rem" }}>

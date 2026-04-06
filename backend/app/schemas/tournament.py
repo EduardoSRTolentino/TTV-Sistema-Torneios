@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,6 +19,13 @@ class TournamentCreate(BaseModel):
     match_points_per_set: int = Field(default=11, ge=1, le=50)
     dispute_third_place: bool = False
     ranking_premiacao: Optional[Dict[str, Any]] = None
+    group_size: int = Field(default=4, ge=3, le=4)
+    number_of_groups: Optional[int] = Field(default=None, ge=1, le=64)
+    qualified_per_group: int = Field(default=2, ge=1, le=8)
+    points_win: int = Field(default=3, ge=0, le=100)
+    points_loss: int = Field(default=0, ge=0, le=100)
+    tiebreak_criteria: Optional[List[str]] = None
+    auto_generate_groups_on_close: bool = False
 
     @field_validator("match_best_of_sets")
     @classmethod
@@ -40,6 +47,14 @@ class TournamentUpdate(BaseModel):
     match_points_per_set: Optional[int] = Field(default=None, ge=1, le=50)
     dispute_third_place: Optional[bool] = None
     ranking_premiacao: Optional[Dict[str, Any]] = None
+    group_size: Optional[int] = Field(default=None, ge=3, le=4)
+    number_of_groups: Optional[int] = Field(default=None, ge=1, le=64)
+    qualified_per_group: Optional[int] = Field(default=None, ge=1, le=8)
+    points_win: Optional[int] = Field(default=None, ge=0, le=100)
+    points_loss: Optional[int] = Field(default=None, ge=0, le=100)
+    tiebreak_criteria: Optional[List[str]] = None
+    auto_generate_groups_on_close: Optional[bool] = None
+    bracket_format: Optional[BracketFormat] = None
 
     @field_validator("match_best_of_sets")
     @classmethod
@@ -82,6 +97,13 @@ class TournamentOut(BaseModel):
     match_points_per_set: int = 11
     dispute_third_place: bool = False
     ranking_premiacao: Optional[Dict[str, Any]] = None
+    group_size: int = 4
+    number_of_groups: Optional[int] = None
+    qualified_per_group: int = 2
+    points_win: int = 3
+    points_loss: int = 0
+    tiebreak_criteria: Optional[List[str]] = None
+    auto_generate_groups_on_close: bool = False
     status: TournamentStatus
     created_at: datetime
     registrations_count: int = 0

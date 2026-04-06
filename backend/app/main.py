@@ -15,6 +15,8 @@ from app.database import (
     engine,
     ensure_bracket_match_extra_columns,
     ensure_bracket_match_sets_table,
+    ensure_group_phase_tables,
+    ensure_tournament_group_settings_columns,
     ensure_elo_ranking_points_column,
     ensure_registration_extra_columns,
     ensure_tournament_extra_columns,
@@ -80,4 +82,6 @@ def startup():
     ensure_elo_ranking_points_column()
     ensure_bracket_match_extra_columns()
     ensure_bracket_match_sets_table()
+    ensure_tournament_group_settings_columns()
+    ensure_group_phase_tables()
     logger.info("Tabelas verificadas/criadas.")

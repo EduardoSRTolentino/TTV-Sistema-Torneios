@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.registration import TournamentRegistration
     from app.models.match import BracketMatch
+    from app.models.tournament_group import TournamentGroup
 
 
 class GameFormat(str, enum.Enum):
@@ -48,6 +49,14 @@ class Tournament(Base):
     match_points_per_set: Mapped[int] = mapped_column(Integer, default=11)
     dispute_third_place: Mapped[bool] = mapped_column(Boolean, default=False)
     ranking_premiacao: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Fase de grupos (quando bracket_format == group_knockout)
+    group_size: Mapped[int] = mapped_column(Integer, default=4)  # 3 ou 4
+    number_of_groups: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # None = automático
+    qualified_per_group: Mapped[int] = mapped_column(Integer, default=2)
+    points_win: Mapped[int] = mapped_column(Integer, default=3)
+    points_loss: Mapped[int] = mapped_column(Integer, default=0)
+    tiebreak_criteria: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    auto_generate_groups_on_close: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[TournamentStatus] = mapped_column(SAEnum(TournamentStatus), default=TournamentStatus.draft)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -56,3 +65,6 @@ class Tournament(Base):
         "TournamentRegistration", back_populates="tournament", cascade="all, delete-orphan"
     )
     matches: Mapped[list["BracketMatch"]] = relationship("BracketMatch", back_populates="tournament", cascade="all, delete-orphan")
+    tournament_groups: Mapped[list["TournamentGroup"]] = relationship(
+        "TournamentGroup", back_populates="tournament", cascade="all, delete-orphan", order_by="TournamentGroup.sort_order"
+    )

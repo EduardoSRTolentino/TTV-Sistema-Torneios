@@ -36,20 +36,18 @@ class SetScoreRow:
     reg2_score: int
 
 
-def infer_winner_registration_id_from_sets(
-    match: BracketMatch,
+def infer_winner_registration_id_from_set_rows(
+    reg1_id: int,
+    reg2_id: int,
     sets: Sequence[SetScoreRow],
     best_of_sets: int,
     points_per_set: int,
     min_lead: int = SET_MIN_LEAD,
 ) -> int:
-    """
-    Valida cada set e a sequência (sem sets extras após decisão).
-    Retorna o registration_id do vencedor (reg1 ou reg2).
-    """
-    if match.reg1_id is None or match.reg2_id is None:
+    """Mesma validação de sets que o mata-mata, sem depender do modelo BracketMatch."""
+    if reg1_id is None or reg2_id is None:
         raise ValueError("Partida sem dois jogadores definidos (BYE não recebe placar por sets).")
-    if match.reg1_id == match.reg2_id:
+    if reg1_id == reg2_id:
         raise ValueError("Inscrições duplicadas na mesma partida.")
     if not sets:
         raise ValueError("Informe pelo menos um set.")
@@ -79,8 +77,28 @@ def infer_winner_registration_id_from_sets(
     if w1 >= need and w2 >= need:
         raise ValueError("Placar inconsistente: ambos venceriam a partida.")
     if w1 >= need:
-        return match.reg1_id
-    return match.reg2_id
+        return reg1_id
+    return reg2_id
+
+
+def infer_winner_registration_id_from_sets(
+    match: BracketMatch,
+    sets: Sequence[SetScoreRow],
+    best_of_sets: int,
+    points_per_set: int,
+    min_lead: int = SET_MIN_LEAD,
+) -> int:
+    """
+    Valida cada set e a sequência (sem sets extras após decisão).
+    Retorna o registration_id do vencedor (reg1 ou reg2).
+    """
+    if match.reg1_id is None or match.reg2_id is None:
+        raise ValueError("Partida sem dois jogadores definidos (BYE não recebe placar por sets).")
+    if match.reg1_id == match.reg2_id:
+        raise ValueError("Inscrições duplicadas na mesma partida.")
+    return infer_winner_registration_id_from_set_rows(
+        match.reg1_id, match.reg2_id, sets, best_of_sets, points_per_set, min_lead
+    )
 
 
 def submit_match_set_scores(

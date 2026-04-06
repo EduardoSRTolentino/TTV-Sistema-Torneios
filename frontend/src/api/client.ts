@@ -1,5 +1,12 @@
 import axios from "axios";
-import type { BracketMatch, Registration, Tournament, User, UserRole } from "./types";
+import type {
+  BracketMatch,
+  GroupsPhase,
+  Registration,
+  Tournament,
+  User,
+  UserRole,
+} from "./types";
 
 const api = axios.create({
   baseURL: "/api",
@@ -58,6 +65,13 @@ export async function createTournament(payload: {
   match_points_per_set?: number;
   dispute_third_place?: boolean;
   ranking_premiacao?: Record<string, number> | null;
+  group_size?: number;
+  number_of_groups?: number | null;
+  qualified_per_group?: number;
+  points_win?: number;
+  points_loss?: number;
+  tiebreak_criteria?: string[] | null;
+  auto_generate_groups_on_close?: boolean;
 }) {
   const { data } = await api.post<Tournament>("/tournaments", payload);
   return data;
@@ -121,6 +135,40 @@ export async function generateBracket(id: number) {
 
 export async function getBracket(id: number) {
   const { data } = await api.get<BracketMatch[]>(`/tournaments/${id}/chaveamento`);
+  return data;
+}
+
+export async function getGroupsPhase(id: number) {
+  const { data } = await api.get<GroupsPhase>(`/tournaments/${id}/grupos`);
+  return data;
+}
+
+export async function generateGroups(id: number) {
+  const { data } = await api.post<GroupsPhase>(`/tournaments/${id}/grupos/gerar`);
+  return data;
+}
+
+export async function submitGroupMatchResult(
+  tournamentId: number,
+  matchId: number,
+  sets: Array<{ set_number: number; reg1_score: number; reg2_score: number }>,
+) {
+  const { data } = await api.post<GroupsPhase>(
+    `/tournaments/${tournamentId}/grupos/partidas/${matchId}/resultado`,
+    { sets },
+  );
+  return data;
+}
+
+export async function submitGroupWalkover(
+  tournamentId: number,
+  matchId: number,
+  winner_registration_id: number,
+) {
+  const { data } = await api.post<GroupsPhase>(
+    `/tournaments/${tournamentId}/grupos/partidas/${matchId}/wo`,
+    { winner_registration_id },
+  );
   return data;
 }
 

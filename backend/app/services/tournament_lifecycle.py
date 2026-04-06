@@ -7,8 +7,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.match import BracketMatch
-from app.models.tournament import Tournament, TournamentStatus
+from app.models.tournament import BracketFormat, Tournament, TournamentStatus
 from app.services.bracket import generate_knockout_bracket
+from app.services.group_service import generate_groups, groups_exist
 
 
 def _deadline_utc(dt: datetime | None) -> datetime | None:
@@ -87,6 +88,13 @@ def start_tournament(db: Session, t: Tournament) -> None:
         db.query(func.count(BracketMatch.id)).filter(BracketMatch.tournament_id == t.id).scalar()
     )
     if int(n_matches or 0) > 0:
+        t.status = TournamentStatus.in_progress
+        db.flush()
+        return
+
+    if t.bracket_format == BracketFormat.group_knockout:
+        if not groups_exist(db, t.id):
+            generate_groups(db, t)
         t.status = TournamentStatus.in_progress
         db.flush()
         return

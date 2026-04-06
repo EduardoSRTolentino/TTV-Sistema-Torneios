@@ -8,6 +8,14 @@ from app.models.report import Report, ReportStatus
 from app.models.elo import EloRating
 from app.models.audit_log import AuditLog
 from app.models.system_settings import SystemSettings
+from app.models.tournament_group import (
+    GroupMatchStatus,
+    TournamentGroup,
+    TournamentGroupMatch,
+    TournamentGroupMatchSet,
+    TournamentGroupMember,
+    TournamentGroupStanding,
+)
 
 __all__ = [
     "User",
@@ -28,4 +36,10 @@ __all__ = [
     "EloRating",
     "AuditLog",
     "SystemSettings",
+    "GroupMatchStatus",
+    "TournamentGroup",
+    "TournamentGroupMember",
+    "TournamentGroupMatch",
+    "TournamentGroupMatchSet",
+    "TournamentGroupStanding",
 ]

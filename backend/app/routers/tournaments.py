@@ -10,13 +10,25 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_roles
 from app.models.elo import EloRating
 from app.models.registration import TournamentRegistration
-from app.models.tournament import GameFormat, Tournament, TournamentStatus
+from app.models.tournament import BracketFormat, GameFormat, Tournament, TournamentStatus
 from app.models.user import User, UserRole
 from app.models.match import BracketMatch
+from app.models.tournament_group import TournamentGroup, TournamentGroupMatch
 from app.schemas.match import BracketMatchOut, MatchResultBody, SetWinnerBody
 from app.schemas.registration import RegistrationCreate, RegistrationOut
+from app.schemas.groups import GroupWalkoverBody, GroupsPhaseOut, MoveGroupMemberBody
 from app.schemas.tournament import TournamentCreate, TournamentOut, TournamentUpdate
 from app.services.bracket import generate_knockout_bracket
+from app.services.group_display import enrich_groups_phase
+from app.services.group_service import (
+    assert_can_generate_groups,
+    apply_group_walkover,
+    generate_groups,
+    generate_knockout_from_groups_phase,
+    groups_exist,
+    move_registration_to_group,
+    submit_group_match_sets,
+)
 from app.services.bracket_display import enrich_bracket_matches
 from app.services.match_flow import set_match_winner
 from app.services.match_service import SetScoreRow, submit_match_set_scores
@@ -84,6 +96,13 @@ def create_tournament(
         match_points_per_set=body.match_points_per_set,
         dispute_third_place=body.dispute_third_place,
         ranking_premiacao=body.ranking_premiacao,
+        group_size=body.group_size,
+        number_of_groups=body.number_of_groups,
+        qualified_per_group=body.qualified_per_group,
+        points_win=body.points_win,
+        points_loss=body.points_loss,
+        tiebreak_criteria=body.tiebreak_criteria,
+        auto_generate_groups_on_close=body.auto_generate_groups_on_close,
         status=TournamentStatus.draft,
     )
     db.add(t)
@@ -167,6 +186,19 @@ def _require_match_manager(match_id: int, db: Session, user: User) -> tuple[Brac
     return m, t
 
 
+def _require_group_match_manager(
+    tournament_id: int, match_id: int, db: Session, user: User
+) -> tuple[TournamentGroupMatch, Tournament]:
+    m = db.query(TournamentGroupMatch).filter(TournamentGroupMatch.id == match_id).first()
+    if not m:
+        raise HTTPException(404, "Partida não encontrada")
+    g = db.query(TournamentGroup).filter(TournamentGroup.id == m.group_id).first()
+    if not g or g.tournament_id != tournament_id:
+        raise HTTPException(404, "Partida não encontrada")
+    t = _require_tournament_manager(tournament_id, db, user)
+    return m, t
+
+
 @router.post("/{tournament_id}/fechar-inscricoes", response_model=TournamentOut)
 def close_registration(tournament_id: int, db: Session = Depends(get_db), user: User = _org):
     t = _require_tournament_manager(tournament_id, db, user)
@@ -177,6 +209,15 @@ def close_registration(tournament_id: int, db: Session = Depends(get_db), user: 
         raise HTTPException(400, str(e))
     db.commit()
     db.refresh(t)
+    if t.bracket_format == BracketFormat.group_knockout and t.auto_generate_groups_on_close:
+        try:
+            if not groups_exist(db, t.id):
+                assert_can_generate_groups(db, t)
+                generate_groups(db, t)
+                db.commit()
+                db.refresh(t)
+        except ValueError:
+            pass
     return _tournament_out(db, t)
 
 
@@ -315,10 +356,15 @@ def generate_bracket(tournament_id: int, db: Session = Depends(get_db), user: Us
     if user.role != UserRole.admin and t.organizer_id != user.id:
         raise HTTPException(403, "Apenas o organizador ou admin")
     apply_auto_close_single(db, t)
-    if t.status != TournamentStatus.registration_closed:
-        raise HTTPException(400, "Encerre as inscrições antes de gerar o chaveamento.")
     try:
-        generate_knockout_bracket(db, t)
+        if t.bracket_format == BracketFormat.group_knockout:
+            if t.status != TournamentStatus.in_progress:
+                raise ValueError("Inicie o torneio (fase de grupos) antes de gerar o mata-mata.")
+            generate_knockout_from_groups_phase(db, t)
+        else:
+            if t.status != TournamentStatus.registration_closed:
+                raise ValueError("Encerre as inscrições antes de gerar o chaveamento.")
+            generate_knockout_bracket(db, t)
         db.commit()
         db.refresh(t)
         rows = (
@@ -387,6 +433,97 @@ def submit_match_result(
         db.commit()
         db.refresh(m)
         return enrich_bracket_matches(db, t, [m])[0]
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+
+
+@router.post("/{tournament_id}/grupos/gerar", response_model=GroupsPhaseOut)
+def post_generate_groups(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    user: User = _org,
+):
+    t = _require_tournament_manager(tournament_id, db, user)
+    apply_auto_close_single(db, t)
+    try:
+        assert_can_generate_groups(db, t)
+        generate_groups(db, t)
+        db.commit()
+        db.refresh(t)
+        return enrich_groups_phase(db, t)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+
+
+@router.get("/{tournament_id}/grupos", response_model=GroupsPhaseOut)
+def get_groups_phase(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Torneio não encontrado")
+    apply_auto_close_single(db, t)
+    return enrich_groups_phase(db, t)
+
+
+@router.patch("/{tournament_id}/grupos/mover-membro", response_model=GroupsPhaseOut)
+def patch_move_group_member(
+    tournament_id: int,
+    body: MoveGroupMemberBody,
+    db: Session = Depends(get_db),
+    user: User = _org,
+):
+    t = _require_tournament_manager(tournament_id, db, user)
+    try:
+        move_registration_to_group(db, t, body.registration_id, body.target_group_id)
+        db.commit()
+        db.refresh(t)
+        return enrich_groups_phase(db, t)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+
+
+@router.post("/{tournament_id}/grupos/partidas/{match_id}/resultado", response_model=GroupsPhaseOut)
+def post_group_match_result(
+    tournament_id: int,
+    match_id: int,
+    body: MatchResultBody,
+    db: Session = Depends(get_db),
+    user: User = _org,
+):
+    m, t = _require_group_match_manager(tournament_id, match_id, db, user)
+    rows = [
+        SetScoreRow(set_number=s.set_number, reg1_score=s.reg1_score, reg2_score=s.reg2_score) for s in body.sets
+    ]
+    try:
+        submit_group_match_sets(db, t, m, rows)
+        db.commit()
+        db.refresh(t)
+        return enrich_groups_phase(db, t)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+
+
+@router.post("/{tournament_id}/grupos/partidas/{match_id}/wo", response_model=GroupsPhaseOut)
+def post_group_match_walkover(
+    tournament_id: int,
+    match_id: int,
+    body: GroupWalkoverBody,
+    db: Session = Depends(get_db),
+    user: User = _org,
+):
+    m, t = _require_group_match_manager(tournament_id, match_id, db, user)
+    try:
+        apply_group_walkover(db, t, m, body.winner_registration_id)
+        db.commit()
+        db.refresh(t)
+        return enrich_groups_phase(db, t)
     except ValueError as e:
         db.rollback()
         raise HTTPException(400, str(e))

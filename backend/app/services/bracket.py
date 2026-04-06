@@ -184,24 +184,27 @@ def compute_first_round_slots(n: int, ordered_registration_ids: list[int]) -> li
     return slots
 
 
-def generate_knockout_bracket(db: Session, tournament: Tournament) -> List[BracketMatch]:
+def generate_knockout_bracket_from_registrations(
+    db: Session,
+    tournament: Tournament,
+    ordered_registration_ids: list[int],
+    *,
+    set_status_in_progress: bool = True,
+) -> List[BracketMatch]:
+    """
+    `ordered_registration_ids`: seed 1 = melhor … seed n = pior (ordenação já definida pelo chamador).
+    """
     existing = (
         db.query(BracketMatch).filter(BracketMatch.tournament_id == tournament.id).count()
     )
     if int(existing or 0) > 0:
         raise ValueError("Chaveamento já existe. Não é possível gerar novamente.")
 
-    regs = (
-        db.query(TournamentRegistration)
-        .filter(TournamentRegistration.tournament_id == tournament.id)
-        .all()
-    )
-    if len(regs) < 2:
+    n = len(ordered_registration_ids)
+    if n < 2:
         raise ValueError("É necessário pelo menos 2 inscrições para gerar o chaveamento.")
 
-    _order_registrations_by_seed(db, tournament, regs)
-
-    reg_ids = compute_first_round_slots(len(regs), [r.id for r in regs])
+    reg_ids = compute_first_round_slots(n, ordered_registration_ids)
     size = len(reg_ids)
     num_rounds = int(math.log2(size))
     r1_count = size // 2
@@ -253,6 +256,23 @@ def generate_knockout_bracket(db: Session, tournament: Tournament) -> List[Brack
     propagate_initial_bye_winners(db, r1_matches)
     db.flush()
 
-    tournament.status = TournamentStatus.in_progress
-    db.flush()
+    if set_status_in_progress:
+        tournament.status = TournamentStatus.in_progress
+        db.flush()
     return [m for r in sorted(round_matches.keys()) for m in round_matches[r]]
+
+
+def generate_knockout_bracket(db: Session, tournament: Tournament) -> List[BracketMatch]:
+    regs = (
+        db.query(TournamentRegistration)
+        .filter(TournamentRegistration.tournament_id == tournament.id)
+        .all()
+    )
+    if len(regs) < 2:
+        raise ValueError("É necessário pelo menos 2 inscrições para gerar o chaveamento.")
+
+    _order_registrations_by_seed(db, tournament, regs)
+
+    return generate_knockout_bracket_from_registrations(
+        db, tournament, [r.id for r in regs], set_status_in_progress=True
+    )

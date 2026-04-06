@@ -12,6 +12,10 @@ export function CreateTournament() {
   const [matchBestOf, setMatchBestOf] = useState(3);
   const [matchPointsPerSet, setMatchPointsPerSet] = useState(11);
   const [disputeThird, setDisputeThird] = useState(false);
+  const [bracketFormat, setBracketFormat] = useState<"knockout" | "group_knockout">("knockout");
+  const [groupSize, setGroupSize] = useState(4);
+  const [qualifiedPerGroup, setQualifiedPerGroup] = useState(2);
+  const [autoGenGroupsOnClose, setAutoGenGroupsOnClose] = useState(false);
   const [premioJson, setPremioJson] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
@@ -46,13 +50,20 @@ export function CreateTournament() {
         title,
         description: description || undefined,
         game_format,
-        bracket_format: "knockout",
+        bracket_format: bracketFormat,
         max_participants,
         registration_deadline: deadline ? new Date(deadline).toISOString() : null,
         match_best_of_sets: matchBestOf,
         match_points_per_set: matchPointsPerSet,
         dispute_third_place: disputeThird,
         ranking_premiacao,
+        ...(bracketFormat === "group_knockout"
+          ? {
+              group_size: groupSize,
+              qualified_per_group: qualifiedPerGroup,
+              auto_generate_groups_on_close: autoGenGroupsOnClose,
+            }
+          : {}),
       });
       await api.openRegistration(t.id);
       nav(`/torneios/${t.id}`);
@@ -80,6 +91,47 @@ export function CreateTournament() {
             <option value="doubles">Duplas</option>
           </select>
         </div>
+        <div className="field">
+          <label>Formato do torneio</label>
+          <select
+            value={bracketFormat}
+            onChange={(e) => setBracketFormat(e.target.value as "knockout" | "group_knockout")}
+          >
+            <option value="knockout">Mata-mata direto</option>
+            <option value="group_knockout">Grupos + mata-mata</option>
+          </select>
+        </div>
+        {bracketFormat === "group_knockout" && (
+          <>
+            <div className="field">
+              <label>Tamanho do grupo</label>
+              <select value={groupSize} onChange={(e) => setGroupSize(Number(e.target.value))}>
+                <option value={3}>3 jogadores</option>
+                <option value={4}>4 jogadores</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Classificados por grupo</label>
+              <input
+                type="number"
+                min={1}
+                max={8}
+                value={qualifiedPerGroup}
+                onChange={(e) => setQualifiedPerGroup(Number(e.target.value))}
+              />
+            </div>
+            <div className="field">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={autoGenGroupsOnClose}
+                  onChange={(e) => setAutoGenGroupsOnClose(e.target.checked)}
+                />{" "}
+                Gerar grupos automaticamente ao encerrar inscrições
+              </label>
+            </div>
+          </>
+        )}
         <div className="field">
           <label>Máximo de participantes</label>
           <input

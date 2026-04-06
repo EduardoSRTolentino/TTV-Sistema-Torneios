@@ -31,9 +31,57 @@ export interface Tournament {
   match_points_per_set: number;
   dispute_third_place: boolean;
   ranking_premiacao?: Record<string, number> | null;
+  group_size?: number;
+  number_of_groups?: number | null;
+  qualified_per_group?: number;
+  points_win?: number;
+  points_loss?: number;
+  tiebreak_criteria?: string[] | null;
+  auto_generate_groups_on_close?: boolean;
   status: TournamentStatus;
   created_at: string;
   registrations_count: number;
+}
+
+export interface GroupStandingRow {
+  registration_id: number;
+  display_name: string;
+  points: number;
+  wins: number;
+  losses: number;
+  sets_won: number;
+  sets_lost: number;
+  points_scored: number;
+  points_conceded: number;
+  rank_position: number;
+  initial_seed_rank: number;
+}
+
+export interface GroupMatchRow {
+  id: number;
+  group_id: number;
+  reg1_id: number;
+  reg2_id: number;
+  winner_reg_id: number | null;
+  status: "pending" | "finished" | "walkover";
+  match_order: number;
+  reg1_display?: string;
+  reg2_display?: string;
+  winner_display?: string | null;
+  sets?: BracketMatchSetRow[];
+}
+
+export interface GroupDetail {
+  id: number;
+  name: string;
+  sort_order: number;
+  standings: GroupStandingRow[];
+  matches: GroupMatchRow[];
+}
+
+export interface GroupsPhase {
+  tournament_id: number;
+  groups: GroupDetail[];
 }
 
 export interface Registration {
